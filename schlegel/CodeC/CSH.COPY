@@ -1,0 +1,31 @@
+#!/bin/csh -f
+#------------------------------------------------------------------------------
+# D Schlegel, 12 Mar 1999, Princeton
+#
+# Copy IDL dust programs for software release
+#------------------------------------------------------------------------------
+set INDIR = '../src'
+set OUTDIR = './'
+cp $INDIR/dust_getval.c $OUTDIR
+cp $INDIR/interface.h $OUTDIR
+cp $INDIR/lambert_getval.c $OUTDIR
+cp $INDIR/predict_sync.c $OUTDIR
+cp $INDIR/predict_thermal.c $OUTDIR
+cp $INDIR/subs_asciifile.c $OUTDIR
+cp $INDIR/subs_asciifile.h $OUTDIR
+cp $INDIR/subs_common_string.h $OUTDIR
+cp $INDIR/subs_common_math.h $OUTDIR
+cp $INDIR/subs_fits.c $OUTDIR
+cp $INDIR/subs_fits.h $OUTDIR
+cp $INDIR/subs_inoutput.c $OUTDIR
+cp $INDIR/subs_inoutput.h $OUTDIR
+cp $INDIR/subs_lambert.c $OUTDIR
+cp $INDIR/subs_lambert.h $OUTDIR
+cp $INDIR/subs_memory.c $OUTDIR
+cp $INDIR/subs_memory.h $OUTDIR
+cp $INDIR/subs_predict.c $OUTDIR
+cp $INDIR/subs_predict.h $OUTDIR
+cp $INDIR/testf_lambert.f $OUTDIR
+cp $INDIR/testf_sync.f $OUTDIR
+cp $INDIR/testf_thermal.f $OUTDIR
+

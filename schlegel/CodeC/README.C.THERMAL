@@ -1,0 +1,177 @@
+-------------------------------------------------------------------------------
+David Schlegel, Princeton, 16 April 1999
+Doug Finkbeiner, Berkeley
+-------------------------------------------------------------------------------
+ 
+This directory contains data files for the following paper:
+  "Extrapolation of Galactic Dust Emission at 100 Microns to CMBR
+  Frequencies using FIRAS", Finkbeiner, D. P., Davis, M., & Schlegel, D. J.,
+  ApJ, 1999, submitted (5 March 1999)
+This paper can be downloaded from one of the following sites: 
+  http://astro.princeton.edu/~schlegel/dust/index.html
+  http://astro.berkeley.edu/dust/index.html
+
+This set of self-contained C routines is for generating predictions for
+the thermal emission from Galactic dust.  The underlying data are stored
+as simple FITS files in Lambert (polar) projection, with one file for each
+hemisphere of the projection.
+ 
+The simplest interface is with "predict_thermal".  You may link directly to
+predict_thermal() in C (as done in predict_thermal.c), or link to
+fort_predict_thermal() in Fortran (as done in testf_thermal.f).
+
+Report problems with the C interface to David Schlegel at
+"schlegel@astro.princeton.edu".
+
+Compilation
+-----------
+Compile everything with "make all", which will put the binaries in
+the directory specified by the variable "DEST" in "Makefile".
+The "Makefile" is currently set up for compilation on a Sun, and
+should be edited for other platforms.
+ 
+Available maps
+--------------
+   The following maps are used for generating the predictions:
+ 
+   File names       MAP
+   ---------------  ----  ----------------------------------------------------
+   SFD_i100*.fits   I100  Reprocessed IRAS 100-micron map in MJy/sr
+   SFD_d100*.fits   D100  Reprocessed DIRBE 100-micron map in MJy/sr
+   FINK_Rmap*.fits  R     Filtered ratio map of 100-micron/240-micron
+ 
+   The default is to read the 4096^2 images, with a scale of approximately
+   (2.37 arc min)^2 per pixel.  Note that the D100 and R maps are only
+   available as 1024^2 images (9.48 arc min)^2 per pixel.
+
+Calling sequence
+----------------
+   predict_thermal gall galb nu=nu resolution=resolution model \
+    infile=infile outfile=outfile interp=interp noloop=noloop \
+    verbose=verbose ipath=ipath units=units
+
+Simple examples
+---------------
+   Generate the predicted emission at Galactic (l,b)=(121,-21.5) at 500 GHz,
+   interpolating from the nearest 4 pixels, and output to the screen:
+     % predict_thermal 121 -21.5 nu=500 interp=y
+   In this example, the returned value should be Inu = 1.5077 MJy/sr.
+
+   You may wish to know if there are any mask bits set for this position.
+   See README.C for more information on the mask.
+
+Optional inputs
+---------------
+   Either the coordinates "gall" and "galb" must be set, or these coordinates
+   must exist in the file "infile".  The frequency "nu" must be set, or must
+   exist as a 3rd column in the input file.  Output is written to standard
+   output or the file "outfile".
+
+   gall:       Galactic longitude(s) in degrees
+   galb:       Galactic latitude(s) in degrees
+   nu:         Frequency in GHz.  If this is a vector, it must be the same
+               dimension as GALL and GALB.  If this is a scalar, then it
+               applies to all positions GALL, GALB.
+   resolution: Set to one of the following (default is 'i100_4096'):
+               'I4096' : IRAS 4096^2 map (highest-resolution; default)
+               'I2048' : IRAS 2048^2 map
+               'I1024' : IRAS 1024^2 map
+               'D1024' : DIRBE 1024^2 map
+   model:      Model number (default to 8):
+               1: One-component, nu^1.5 emissivity
+               2: One-component, nu^1.7 emissivity
+               3: One-component, nu^2.0 emissivity
+               4: One-component, nu^2.2 emissivity
+               5: Two-component, alpha1=1.5, alpha2=2.6, Pollack et al. model
+               6: Two-component, both nu^2 emissivities, fit f+q
+               7: Two-component, alpha1=1.5, alpha2=2.6, fit f+q
+               8: Two-component, alpha1=1.67, alpha2=2.70, fit alphas+f+q
+   infile:     If set, then read "gall" and "galb" from this file.  If "nu"
+               is not set, then "nu" is read as the 3rd column of this same
+               file.
+   outfile:    If set, then write results to this file
+   interp:     Set this flag to "y" to return a linearly interpolated value
+               from the 4 nearest pixels.
+               This is disabled if map=='mask'.
+   noloop:     Set this flag to "y" to read entire image into memory
+               rather than reading pixel values for one point at a time.
+               This is a faster option for reading a large number of values,
+               but requires reading up to a 64 MB image at a time into
+               memory.  (Actually, the smallest possible sub-image is read.)
+   verbose:    Set this flag to "y" for verbose output, printing pixel
+               coordinates and map values
+   ipath:      Path name for dust maps; default to path set by the
+               environment variable $DUST_DIR/map, or to the current
+               directory.
+   units:      Units for output values:
+               'MJy'   : MJy/sr (default)
+               'microK' : brightness (antenna) temperature [micro-Kelvin]
+               'thermo' : thermodynamic temperature [micro-Kelvin]
+                          assuming T(CMB) = 2.73 K
+
+Data format
+-----------
+   All maps are stored as FITS files, in pairs of 4096x4096 (or MxM) pixel
+   Lambert projections.  The NGP projection covers the northern Galactic
+   hemisphere, centered at b=+90 deg, with latitude running clockwise.
+   The SGP projection covers the southern Galactic hemisphere, centered at
+   b=-90 deg, with latitude running counter-clockwise.  Galactic coordinates
+   (l,b) are converted to pixel positions (x,y) via
+      x = 2048 SQRT {1 - n sin(b)}  cos(l) + 2047.5
+      y = - 2048 n SQRT{1 - n sin(b)} sin(l) + 2047.5
+   where n=+1 for the NGP, and n=-1 for the SGP.
+   Pixel numbers are zero-indexed, with the center of the lower left pixel
+   having position (x,y)=(0,0).  These Lambert projections are minimally
+   distorted at high Galactic latitudes, with the distortion approaching
+   40% at b=0 deg.  The pixel size of (2.372 arcmin)^2 well-samples the
+   FWHM of 6.1 arcmin.
+
+   This projection is equivalent to the zenithal equal area (ZEA) projection
+   of Griesen & Calabretta (1996).  As of April 1999, our FITS header cards
+   conform to their standard.
+
+Unit Conversion Factors for Selected CMBR Experiments
+-----------------------------------------------------
+   Column 1 contains the frequency, in GHz, for which the factors are 
+   computed.  Column 2 is the corresponding wavelength in mm.  A map  
+   in units of MJy/sr should be multiplied by the factor in Column 3  
+   to convert to micro-Kelvin brightness temperature.  Brightness     
+   temperature is multiplied by Planckcorr (Column 4) to convert to   
+   thermodynamic temperature, assuming T(CMB)=2.73K.                  
+
+           nu(GHz) lambda(mm) uK/(MJy/sr)   Planckcorr
+  COBE/DMR -------------------------------------------
+              31.5      9.52   32849.105      1.02582
+              53.0      5.66   11603.604      1.07448
+              90.0      3.33    4024.015      1.22684
+  MAP ------------------------------------------------
+              22.0     13.64   67344.058      1.01253
+              30.0     10.00   36216.138      1.02340
+              40.0      7.50   20371.578      1.04190
+              60.0      5.00    9054.034      1.09623
+              90.0      3.33    4024.015      1.22684
+  MAXIMA ---------------------------------------------
+             150.0      2.00    1448.646      1.73190
+             240.0      1.25     565.877      3.70748
+             390.0      0.77     214.297     20.16516
+  Planck ---------------------------------------------
+              30.0     10.00   36216.138      1.02340
+              44.0      6.82   16836.015      1.05087
+              70.0      4.29    6651.944      1.13275
+             100.0      3.00    3259.452      1.28562
+             143.0      2.10    1593.942      1.65110
+             217.0      1.38     692.190      2.98186
+             353.0      0.85     261.574     12.81862
+             545.0      0.55     109.737    157.84946
+             857.0      0.35      44.380  15392.36523
+  BOOMERanG ------------------------------------------
+              90.0      3.33    4024.015      1.22684
+             180.0      1.67    1006.004      2.16887
+             270.0      1.11     447.113      5.02489
+             420.0      0.71     184.776     29.48916
+  OVRO -----------------------------------------------
+              14.5     20.69  155027.463      1.00543
+              32.0      9.38   31830.590      1.02665
+  Cottingham -----------------------------------------
+              19.2     15.62   88418.298      1.00953
+
