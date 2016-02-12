@@ -225,8 +225,8 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
         rs       : list of floats, length 2 or 3
                    red sequence parameters (zeropoint,slope[,scatter]). The
                    scatter is optional
-        bcg      : int (or boolean array with a single True entry)
-                   index of the BCG in the mag parameter
+        bcg      : tuple of length 2
+                   magnitude and color of the BCG
         output   : str
                    name of the file where the plot will be saved. If not
                    provided, the plot will be shown on screen.
