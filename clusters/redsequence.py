@@ -33,6 +33,7 @@ References
 """
 
 import ecgmmPy
+import emcee
 import numpy
 import pylab
 import scipy
@@ -191,24 +192,69 @@ def lambda_richness(z, R, mag, color, color_err, rs_zeropoint, rs_slope,
                (Cfilter, Lfilter, Rfilter, px)
     return richness, richness_err
 
-def plot(bcg, rsg, pivot, mag, c, e, alpha=False, mu=False, sigma=False,
-         rs=False, output='', comments='', fix_scatter=False,
-         rsplot=True, ecgmm=True, mag_label='m', color_label='c',
-         ylim=False, verbose=True):
+def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
+         sigma=False, rs=False, bcg=False, output='', comments='',
+         fix_scatter=False, rsplot=True, mag_label='magnitude',
+         color_label='color', ylim=False, verbose=True):
     """
-    Plot the RS, along with the results of ECGMM
+    Plot the red sequence, along with the results of ECGMM when available
 
     Parameters
     ----------
-      rsg
+        rsg      : array of ints or bool
+                   indices of galaxies that belong to the red sequence,
+                   as returned by rsgalaxies()
+        pivot    : float
+                   pivot magnitude for the red sequence
+        mag      : array of floats
+                   galaxy magnitudes
+        color    : array of floats
+                   galaxy color
 
-    rs is a 2-element vector containing the slope and zero-point of the
-    red sequence
+    Optional arguments
+    ------------------
+        color_err : array of floats
+                   uncertainty in galaxy color
+        alpha    : list of floats
+                   membership fraction for each population in color, as
+                   identified by ECGMM
+        mu       : list of floats
+                   location(s) of the ECGMM population(s)
+        sigma    : list of floats
+                   width(s) of the ECGMM population(s)
+        rs       : list of floats, length 2 or 3
+                   red sequence parameters (zeropoint,slope[,scatter]). The
+                   scatter is optional
+        bcg      : tuple of length 2
+                   magnitude and color of the BCG
+        output   : str
+                   name of the file where the plot will be saved. If not
+                   provided, the plot will be shown on screen.
+        comments : str
+                   any comments to appear in the top-left corner of the plot,
+                   such as cluster name and redshift
+        fix_scatter : float
+                   intrinsic scatter of the red sequence (used for
+                   compatibility with the redsequence() wrapper)
+        rsplot   : bool
+                   whether to plot the red sequence line
+        mag_label : str
+                   xlabel of the red sequence plot
+        color_label : str
+                   ylabel of the red sequence plot
+        ylim     : tuple of floats, length 2
+                   y-axis limits of the plot. If not provided, are determined
+                   automatically by matplotlib
+        verbose  : bool
+                   verbose
+
     """
     red = (1,0,0)
     blue = (0,0,1)
     yellow = (0.7,0.7,0)
 
+    if len(color_err) == 0:
+        color_err = numpy.zeros(mag.size)
     # plot limits
     if bcg is False:
         xmin = min(mag)
@@ -515,7 +561,7 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
         comm += 'red sequence galaxies. You will have\n'
         comm += 'to input it in the terminal. You can also give a third\n'
         comm += 'argument, which will be a minimum magnitude to use'
-        plot(bcg, galaxies, pivot, mag, color, color_err, comments=comm,
+        plot(galaxies, pivot, mag, color, color_err, bcg=bcg, comments=comm,
              mag_label=mag_label, color_label=color_label, ylim=plot_ylim,
              fix_scatter=fix_scatter, verbose=verbose)
         msg = 'Write down lower and upper colors (space-separated): '
@@ -605,8 +651,8 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
         b = (fix_slope, 0)
         s = (rs[2], 0)
     if make_plot:
-        plot(bcg, rsg, pivot, mag, color, color_err, alpha,
-             mu, sigma, rs, output=plot_output,
+        plot(rsg, pivot, mag, color, color_err, alpha,
+             mu, sigma, rs, bcg=bcg, output=plot_output,
              comments=plot_comments, fix_scatter=fix_scatter,
              rsplot=True, mag_label=mag_label,
              color_label=color_label, ylim=plot_ylim,
@@ -946,38 +992,44 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
     elif method == 'bayesian':
         if verbose:
             print '  Calculating Likelihoods...'
-        L = numpy.zeros((t_zp.size,t_sl.size))
-        for i in xrange(t_zp.size):
-            for j in xrange(t_sl.size):
-                L[i][j] = scipy.prod(_likelihood(mag, c, t_zp[i],
-                                                 t_sl[j], e/c))
-        # marginalized distributions:
-        if verbose:
-            print '  Marginalizing...'
-        zp = numpy.sum(L, axis=1)
-        zp = zp / zp.sum() # normalized
-        zp_peak = t_zp[numpy.argmax(zp)]
-        zp_err = numpy.std(zp)
-        sl = numpy.sum(L, axis=0)
-        sl = sl / sl.sum()
-        sl_peak = t_sl[numpy.argmax(sl)]
-        sl_err = numpy.std(sl)
-        if verbose:
-            print 'sl = %6.3f +/- %.3f' %(sl_peak, sl_err)
-            print 'zp = %6.3f +/- %.3f' %(zp_peak, zp_err)
-            print 'cov:'
-            print numpy.cov(sl, zp)
-        return L
+        #L = numpy.zeros((t_zp.size,t_sl.size))
+        #for i in xrange(t_zp.size):
+            #for j in xrange(t_sl.size):
+                #L[i][j] = scipy.prod(_likelihood(mag, c, t_zp[i],
+                                                 #t_sl[j], e/c))
+        ## marginalized distributions:
+        #if verbose:
+            #print '  Marginalizing...'
+        #zp = numpy.sum(L, axis=1)
+        #zp = zp / zp.sum() # normalized
+        #zp_peak = t_zp[numpy.argmax(zp)]
+        #zp_err = numpy.std(zp)
+        #sl = numpy.sum(L, axis=0)
+        #sl = sl / sl.sum()
+        #sl_peak = t_sl[numpy.argmax(sl)]
+        #sl_err = numpy.std(sl)
+        #if verbose:
+            #print 'sl = %6.3f +/- %.3f' %(sl_peak, sl_err)
+            #print 'zp = %6.3f +/- %.3f' %(zp_peak, zp_err)
+            #print 'cov:'
+            #print numpy.cov(sl, zp)
+        #return L
+        sampler = emcee.EnsembleSampler
     return
 
-def _likelihood(r, c, zp, sl, e=1):
+def _likelihood(mag, c, zp, sl, e=1):
     """
     e is the fractional error on the color
     """
-    line = zp + sl * r
+    line = zp + sl * mag
     n = numpy.sqrt(2*numpy.pi) * e * line
     p = numpy.exp(-(c - line) ** 2 / (2 * (e*line) ** 2))
     return p / n
+
+def _lnprob(theta, mag, color, color_err=0.1, priors=None):
+    #zp, sl = theta
+    #if priors is not None:
+    return
 
 def rsgalaxies(mag, color, color_err, mu, sigma, indices=None, width=2,
                sigma_int=0.05, fit='flat'):

@@ -3,7 +3,6 @@
 Satellite lensing EMCEE wrapper
 
 """
-import argparse
 import emcee
 import numpy
 import os
@@ -17,32 +16,17 @@ from os.path import isfile
 from time import ctime
 import pickle
 
-import sys
-sys.path.append('/disks/shear7/sifon/cccp/lensing/satellites')
-sys.path.append('/Users/cristobal/Documents/cccp/lensing/satellites')
-
-import hm_utils
 import sampling_utils
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', dest='config_file')
-    parser.add_argument('--demo', dest='demo', action='store_true',
-                        help='do a demo run with the input parameters')
-    args = parser.parse_args()
-
-    run_emcee(args)
-    return
-
-def run_emcee(args):
-    sampling_options = sampling_utils.read_config(args.config_file)
+def run_emcee(hm_options, sampling_options, args):
+    # load halo model setup
+    function, params, param_types, prior_types, \
+        val1, val2, val3, val4, params_join, hm_functions, \
+        starting, meta_names, fits_format = hm_options
+    # load MCMC sampler setup
     datafile, datacols, covfile, covcols, exclude_bins, output, \
         sampler, nwalkers, nsteps, nburn, \
-        thin, k, threads, sampler_type = sampling_options
-    hm_options = hm_utils.read_config(args.config_file)
-    function, params, param_types, prior_types, \
-        val1, val2, val3, val4, hm_functions, \
-        starting, meta_names, fits_format = hm_options
+        thin, k, threads, sampler_type, update_freq = sampling_options
 
     #function = cloud.serialization.cloudpickle.dumps(model)
     #del model
@@ -52,14 +36,14 @@ def run_emcee(args):
     #print 'pickled'
 
     if args.demo:
-        print 'Running demo only'
-    elif os.path.isfile(output):
+        print ' ** Running demo only **'
+    elif isfile(output):
         msg = 'Warning: output file %s exists. Overwrite? [y/N] ' %output
-        go = raw_input(msg)
-        if not go:
-            return
-        if go.lower() not in ('y', 'yes'):
-            return
+        answer = raw_input(msg)
+        if len(answer) == 0:
+            exit()
+        if answer.lower() not in ('y', 'yes'):
+            exit()
     if not args.demo:
         print 'Started -', ctime()
 
@@ -76,7 +60,7 @@ def run_emcee(args):
 
     # needed for offset central profile
     R, Rrange = sampling_utils.setup_integrand(R, k)
-    angles = numpy.linspace(0, 2*numpy.pi, 540)
+    angles = numpy.linspace(0, 2*pi, 540)
     val1 = numpy.append(val1, [Rrange, angles])
 
     # identify fixed and free parameters
@@ -90,21 +74,45 @@ def run_emcee(args):
         exit()
     print 'starting =', starting
 
+    # identify the function. Raises an AttributeError if not found
+    #function = model.model()
+    #sat_profile = params.sat_profile()
+    #group_profile = params.group_profile()
+    #function = model
+
+    if not args.demo:
+        hdrfile = '.'.join(output.split('.')[:-1]) + '.hdr'
+        print 'Printing header information to', hdrfile
+        hdr = open(hdrfile, 'w')
+        print >>hdr, 'Started', ctime()
+        print >>hdr, 'datafile', ','.join(datafile)
+        print >>hdr, 'cols', ','.join([str(c) for c in datacols])
+        print >>hdr, 'covfile', covfile
+        print >>hdr, 'covcols', ','.join([str(c) for c in covcols])
+        if exclude_bins is not None:
+            print >>hdr, 'exclude_bins', ','.join([str(c)
+                                                   for c in exclude_bins])
+        print >>hdr, 'model %s' %function
+        for p, pt, v1, v2, v3, v4 in izip(params, prior_types,
+                                        val1, val2, val3, val4):
+            try:
+                line = '%s  %s  ' %(p, pt)
+                line += ','.join(numpy.array(v1, dtype=str))
+            except TypeError:
+                line = '%s  %s  %s  %s  %s  %s' \
+                    %(p, pt, str(v1), str(v2), str(v3), str(v4))
+            print >>hdr, line
+        print >>hdr, 'nwalkers  {0:5d}'.format(nwalkers)
+        print >>hdr, 'nsteps    {0:5d}'.format(nsteps)
+        print >>hdr, 'nburn     {0:5d}'.format(nburn)
+        print >>hdr, 'thin      {0:5d}'.format(thin)
+        hdr.close()
+
     # are we just running a demo?
     if args.demo:
         import pylab
         from matplotlib import cm
-        val1[jfree] = starting
-        model = function(val1, R)
-        residuals = esd - model[0]
-        dof = esd.size - len(val1[jfree]) - 1
-        chi2 = array([dot(residuals[m], dot(icov[m][n], residuals[n]))
-                      for m in rng_obsbins for n in rng_obsbins]).sum()
-        print ' ** chi2 = %.2f/%d **' %(chi2, dof)
-        Ndatafiles = len(esd)
-        fig, axes = pylab.subplots(figsize=(4*Ndatafiles,4), ncols=Ndatafiles)
-        for i in izip(axes, R, esd, esd_err, model[0], model[1], model[2]):
-            ax, Ri, gt, gt_err, f, fsat, fhost = i
+        def plot_demo(ax, Ri, gt, gt_err, f, fsat, fhost):
             Ri = Ri[1:]
             ax.errorbar(Ri, gt, yerr=gt_err, fmt='ko', ms=10)
             ax.plot(Ri, f, 'r-', lw=3)
@@ -112,57 +120,52 @@ def run_emcee(args):
             ax.plot(Ri, fhost, 'g-.', lw=2)
             ax.set_xscale('log')
             for x, fi, gti, gei in izip(Ri, f, gt, gt_err):
-                #print x, gti+20, '{0:.2f}'.format((fi-gti)/gei)
                 ax.annotate('{0:.2f}'.format((fi-gti)/gei),
                             xy=(x,gti+20), ha='center', va='bottom',
                             color='r')
+            return
+        val1[jfree] = starting
+        if params_join is not None:
+            v1 = list(val1)
+            for p in params_join:
+                # without this list comprehension numpy can't keep track of the
+                # data type. I believe this is because there are elements of
+                # different types in val1 and therefore its type is not 
+                # well defined (so it gets "object")
+                v1[p[0]] = array([val1[pj] for pj in p])
+            # need to delete elements backwards to preserve indices
+            aux = [[v1.pop(pj) for pj in p[1:][::-1]]
+                   for p in params_join[::-1]]
+            val1 = v1 #array(v1) ??
+        model = function(val1, R)
+        residuals = esd - model[0]
+        dof = esd.size - starting.size - 1
+        chi2 = array([dot(residuals[m], dot(icov[m][n], residuals[n]))
+                      for m in rng_obsbins for n in rng_obsbins]).sum()
+        print ' ** chi2 = %.2f/%d **' %(chi2, dof)
+        fig, axes = pylab.subplots(figsize=(4*Ndatafiles,4), ncols=Ndatafiles)
+        if Ndatafiles == 1:
+            plot_demo(axes, R, esd, esd_err, model[0], model[1], model[2])
+        else:
+            for i in izip(axes, R, esd, esd_err, model[0], model[1], model[2]):
+                plot_demo(*i)
+        if npall(esd - esd_err > 0):
+            for ax in axes:
+                ax.set_yscale('log')
         fig.tight_layout(w_pad=0.01)
-        pylab.draw()
-        p = numpy.percentile(cov, [1, 99])
-        #fig, axes = pylab.subplots(figsize=(8,8), nrows=cov.shape[0],
-                                   #ncols=cov.shape[0])
-        #for m, axm in enumerate(axes):
-            #for n, axmn in enumerate(axm):
-                #axmn.imshow(cov[m][-n-1][::-1], interpolation='nearest',
-                            #cmap=cm.CMRmap_r, vmin=p[0], vmax=p[1])
-                            ##vmin=-2, vmax=14)
-        fig, ax = pylab.subplots(figsize=(5,5))
-        ax.imshow(cov2d[::-1], interpolation='nearest',
-                  cmap=cm.CMRmap_r, vmin=p[0], vmax=p[1])
+        pylab.show()
+        fig, axes = pylab.subplots(figsize=(8,8), nrows=cov.shape[0],
+                                   ncols=cov.shape[0])
+        for m, axm in enumerate(axes):
+            for n, axmn in enumerate(axm):
+                axmn.imshow(cov[m][-n-1][::-1], interpolation='nearest',
+                            cmap=cm.CMRmap_r)
         fig.tight_layout()
         pylab.show()
         exit()
 
-    # save header file
-    hdrfile = '.'.join(output.split('.')[:-1]) + '.hdr'
-    print 'Printing header information to', hdrfile
-    hdr = open(hdrfile, 'w')
-    print >>hdr, 'Started', ctime()
-    print >>hdr, 'datafile', ','.join(datafile)
-    print >>hdr, 'cols', ','.join([str(c) for c in datacols])
-    print >>hdr, 'covfile', covfile
-    print >>hdr, 'covcols', ','.join([str(c) for c in covcols])
-    if exclude_bins is not None:
-        print >>hdr, 'exclude_bins', ','.join([str(c)
-                                                for c in exclude_bins])
-    print >>hdr, 'model %s' %function
-    for p, pt, v1, v2, v3, v4 in izip(params, prior_types,
-                                    val1, val2, val3, val4):
-        try:
-            line = '%s  %s  ' %(p, pt)
-            line += ','.join(numpy.array(v1, dtype=str))
-        except TypeError:
-            line = '%s  %s  %s  %s  %s  %s' \
-                %(p, pt, str(v1), str(v2), str(v3), str(v4))
-        print >>hdr, line
-    print >>hdr, 'nwalkers  {0:5d}'.format(nwalkers)
-    print >>hdr, 'nsteps    {0:5d}'.format(nsteps)
-    print >>hdr, 'nburn     {0:5d}'.format(nburn)
-    print >>hdr, 'thin      {0:5d}'.format(thin)
-    hdr.close()
-
     # set up starting point for all walkers
-    po = starting * numpy.random.uniform(0.98, 1.02, size=(nwalkers,ndim))
+    po = starting * numpy.random.uniform(0.99, 1.01, size=(nwalkers,ndim))
     lnprior = zeros(ndim)
     mshape = meta_names.shape
     # this assumes that all parameters are floats -- can't imagine a
@@ -174,7 +177,11 @@ def run_emcee(args):
                 metadata[j].append(zeros(nwalkers*nsteps/thin))
             else:
                 size = [nwalkers*nsteps/thin, int(f[:-1])]
-                if exclude_bins is not None:
+                # only for ESDs. Note that there will be trouble if outputs
+                # other than the ESD have the same length, so avoid them at
+                # all cost.
+                if exclude_bins is not None \
+                    and size[1] == esd.shape[-1]+len(exclude_bins):
                     size[1] -= len(exclude_bins)
                 metadata[j].append(zeros(size))
     metadata = [array(m) for m in metadata]
@@ -191,7 +198,7 @@ def run_emcee(args):
                                     threads=threads,
                                     args=(R,esd,icov,function,
                                           params,prior_types[jfree],
-                                          val1,val2,val3,val4,
+                                          val1,val2,val3,val4,params_join,
                                           jfree,lnprior,likenorm,
                                           rng_obsbins,fail_value,
                                           array,dot,inf,izip,outer,pi))
@@ -199,7 +206,7 @@ def run_emcee(args):
                                           #outer,sqrt,zeros))
     # burn-in
     if nburn > 0:
-        pos, prob, state, blob = sampler.run_mcmc(po, nburn)
+        pos, prob, state, blobs = sampler.run_mcmc(po, nburn)
         sampler.reset()
         print '{0} Burn-in steps finished ({1})'.format(nburn, ctime())
     else:
@@ -210,7 +217,7 @@ def run_emcee(args):
     for i, result in enumerate(sampler.sample(pos, iterations=nsteps,
                                               thin=thin)):
         # make sure that nwalkers is a factor of this number!
-        if i*nwalkers % 10000 == nwalkers:
+        if i*nwalkers % update_freq == nwalkers:
             out = write_to_fits(output, chi2, sampler, nwalkers, thin,
                                 params, jfree, metadata, meta_names, i,
                                 nwritten, Nobsbins,
@@ -258,8 +265,8 @@ def run_emcee(args):
     print 'Everything saved to {0}!'.format(output)
     return
 
-def lnprob(theta, R, esd, icov, function, params,
-           prior_types, val1, val2, val3, val4, jfree, lnprior, likenorm,
+def lnprob(theta, R, esd, icov, function, params, prior_types,
+           val1, val2, val3, val4, params_join, jfree, lnprior, likenorm,
            rng_obsbins, fail_value, array, dot, inf, izip, outer, pi):
            #array, dot, inf, izip, isfinite, log, log10, sqrt):
     """
@@ -306,7 +313,7 @@ def lnprob(theta, R, esd, icov, function, params,
     if not isfinite(v1free.sum()):
         return -inf, fail_value
     # satellites cannot be more massive than the group!
-    #if theta[params[jfree] == 'Msat'] >= theta[params[jfree] == 'Mhost']:
+    #if theta[params[jfree] == 'Msat'] >= theta[params[jfree] == 'Mgroup']:
         #return -inf, fail_value
     # not normalized yet
     j = (prior_types == 'normal')
@@ -337,6 +344,18 @@ def lnprob(theta, R, esd, icov, function, params,
     # run the given model
     v1 = val1.copy()
     v1[jfree] = theta
+    if params_join is not None:
+        v1j = list(v1)
+        for p in params_join:
+            # without this list comprehension numpy can't keep track of the
+            # data type. I believe this is because there are elements of
+            # different types in val1 and therefore its type is not 
+            # well defined (so it gets "object")
+            v1j[p[0]] = array([v1[pi] for pi in p])
+        # need to delete elements backwards to preserve indices
+        aux = [[v1j.pop(pi) for pi in p[1:][::-1]]
+                for p in params_join[::-1]]
+        v1 = v1j #array(v1j) ??
 
     model = function(v1, R)
     # no covariance
@@ -377,6 +396,7 @@ def write_to_fits(output, chi2, sampler, nwalkers, thin, params, jfree,
                             sampler.blobs[nwritten:]):
             data = [transpose([b[i] for b in blob])
                     for i in xrange(len(blob[0])-nexclude)]
+            # re-arrange blobs
             if Nobsbins == 1:
                 for i in xrange(len(data)):
                     if len(data[i].shape) == 2:
@@ -386,24 +406,10 @@ def write_to_fits(output, chi2, sampler, nwalkers, thin, params, jfree,
                     if len(data[i].shape) == 3:
                         data[i] = transpose([b[i] for b in blob],
                                             axes=(1,0,2))
-            #for i in xrange(len(data)):
-                #if len(data[i].shape) == 2:
-                    #data[i] = array([b[i] for b in blob])
-                #elif len(data[i].shape) == 3:
-                    #data[i] = transpose([b[i] for b in blob], axes=(1,0,2))
-            # each k is one satellite radial bin
-            #if len(data) == 1:
-                ## not working but not sure will ever use it
-                #metadata[0][0][j*nwalkers:(j+1)*nwalkers] = data[0]
-                #if shape[1] == 4:
-                    #metadata[0][1][j*nwalkers:(j+1)*nwalkers] = data[1]
-                    #metadata[0][2][j*nwalkers:(j+1)*nwalkers] = data[2]
-                    #metadata[0][3][j*nwalkers:(j+1)*nwalkers] = data[3]
-            #else:
-            for k, datum in enumerate(data):
-                #print
-                for i in xrange(len(datum)):
-                    metadata[k][i][j*nwalkers:(j+1)*nwalkers] = datum[i]
+            # store data
+            for k in xrange(len(data)):
+                for i in xrange(len(data[k])):
+                    metadata[k][i][j*nwalkers:(j+1)*nwalkers] = data[k][i]
             lnPderived[j*nwalkers:(j+1)*nwalkers] = array([b[-4]
                                                            for b in blob])
             lnprior[j*nwalkers:(j+1)*nwalkers] = array([b[-3] for b in blob])
@@ -414,9 +420,6 @@ def write_to_fits(output, chi2, sampler, nwalkers, thin, params, jfree,
                               array=lnPderived))
         columns.append(Column(name='chi2', format='E', array=chi2))
         columns.append(Column(name='lnlike', format='E', array=lnlike))
-        #for name, val, fmt in izip(meta_names, metadata, fits_format):
-            #for ni, vi, fi in izip(name, val, fmt):
-                #columns.append(Column(name=ni, array=vi, format=fi))
         # this handles exclude_bins properly
         for name, val in izip(meta_names, metadata):
             for name_i, val_i in izip(name, val):
@@ -433,5 +436,3 @@ def write_to_fits(output, chi2, sampler, nwalkers, thin, params, jfree,
         print '(printing every {0}th sample)'.format(thin),
     print '- {0}'.format(ctime())
     return metadata, nwritten
-
-main()
