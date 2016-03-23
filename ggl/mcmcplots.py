@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import argparse
 import glob
 import itertools
 import numpy
@@ -15,8 +16,10 @@ from scipy import optimize, stats
 from uncertainties import ufloat
 
 # local
+sys.path.append(os.getcwd())
 import models
 import nfw
+import sampling_utils
 import utils
 
 from astro import cosmology
@@ -69,27 +72,21 @@ purple = (0.8,0,0.4)
 #bcolor = [(0.1,0.5,1), (0.5,0.8,1), (0.8,0.9,1)]
 bcolor = [orange, yellow, cyan]
 
-
-def main(save_output=True, burn=100000, ext='pdf',
-         corner_params=None):
+def main(save_output=True, burn=100000, ext='pdf', corner_params=None):
+    args = read_args()
     paramtypes = ('function', 'read', 'uniform', 'loguniform',
                   'normal', 'lognormal', 'fixed')
-    chainfile = sys.argv[1]
-    if len(sys.argv) == 3:
-        output_path = sys.argv[2]
-    else:
-        output_path = 'mcmcplots'
-    hdr = chainfile.replace('.fits', '.hdr')
-    print 'Reading file', chainfile, '...'
-    data = fits.getdata(chainfile)
+    hdr = args.chainfile.replace('.fits', '.hdr')
+    hdr = utils.read_header(hdr)
+    params, prior_types, val1, val2, val3, val4, \
+        datafiles, cols, covfile, covcols, exclude_bins, \
+        model, nwalkers, nsteps, nburn = hdr
+    print 'Reading file', args.chainfile, '...'
+    data = fits.getdata(args.chainfile)
     names = data.names
-    good = (data.field('chi2') > 0) & (data.field('chi2') < 9999)
+    good = (data.field('chi2') > 0)# & (data.field('chi2') < 9999)
     chain, keys = numpy.transpose([(data.field(key)[good], key)
                                    for key in names])
-    if 'linpriors' not in chainfile:
-        for i, key in enumerate(keys):
-            if 'Msat' in key or 'Mgroup' in key:
-                chain[i] = 10**chain[i]
     lnlike = data.field('lnlike')[good]
 
     print len(lnlike), 'samples'
@@ -122,27 +119,30 @@ def main(save_output=True, burn=100000, ext='pdf',
     print 'Plotting...'
     show = not save_output
 
-    esds, esd_keys = numpy.transpose([(data.field('esd%d' %i)[good],
-                                       'esd%d' %i)
-                                      for i in xrange(1, 4)])
+    esds = []
+    esd_keys = []
+    for i in xrange(1, 11):
+        if 'esd{0}'.format(i) not in keys:
+            break
+        esd_keys.append('esd{0}'.format(i))
+        esds.append(data[keys == esd_keys[-1]])
+    esds = numpy.array(esds)
+    esd_keys = numpy.array(esd_keys)
     chi2 = data.field(chi2_key)[good]
 
-    out = plot_esd_verbose(chainfile, esds, esd_keys, best,
-                           burn=burn, show=show,
-                           save_output=save_output,
-                           output_path=output_path, ext=ext)
-    out = plot_esd(chainfile, chain, keys, esds, esd_keys, best,
-                   burn=burn, show=show, save_output=save_output,
-                   output_path=output_path, ext=ext)
+    #out = plot_esd_verbose(args, hdr, esds, esd_keys, best,
+                           #burn=burn, show=show,
+                           #save_output=save_output, ext=ext)
+    out = plot_esd(args, hdr, chain, keys, esds, esd_keys, best,
+                   burn=burn, show=show, save_output=save_output, ext=ext)
     Ro, signal, signal_err, used, \
         median_signal, percent_signal, residuals = out
 
 
-    corr = plot_covariance(chainfile, (len(esds),len(esds[0][0])),
+    corr = plot_covariance(args, (len(esds),len(esds[0][0])),
                            corr=True, save_output=save_output, ext=ext)
-    cov = plot_covariance(chainfile, (len(esds),len(esds[0][0])),
-                          save_output=save_output,
-                          output_path=output_path, ext=ext)
+    cov = plot_covariance(args, (len(esds),len(esds[0][0])),
+                          save_output=save_output, ext=ext)
     Nobsbins, Nrbins = numpy.array(signal).shape
     # this copied from run.py to get chi2
     cov = numpy.transpose(cov, axes=(0,2,1,3))
@@ -156,23 +156,20 @@ def main(save_output=True, burn=100000, ext='pdf',
     print 'chi2_bestfit = %.2f' %chi2bf
 
 
-    plot_samples(chainfile, chain, keys, best, chi2bf,
-                 len(Ro[used])*len(signal), burn=burn,
-                 corner_params=corner_params, save_output=save_output,
-                 output_path=output_path, ext=ext)
-    #plot_satsignal(chainfile, chain, keys, Ro, signal, signal_err,
+    plot_samples(args, chain, keys, best, chi2bf,
+                 len(Ro[used])*len(signal), burn=burn, ext=ext,
+                 corner_params=corner_params, save_output=save_output)
+    #plot_satsignal(args, chain, keys, Ro, signal, signal_err,
                    #burn=burn)
-    #plot_massradius(chainfile, chain, keys, burn=burn,
-                    #save_output=save_output, output_path=output_path, ext=ext)
-    #plot_massradius(chainfile, chain, keys, burn=burn,
-                    #save_output=save_output,
-                    #output_path=output_path, ext=ext, norm=True)
-    #plot_massradius(chainfile, chain, keys, burn=burn,
-                    #save_output=save_output,
-                    #output_path=output_path, ext='png', norm=True,
+    #plot_massradius(args, chain, keys, burn=burn,
+                    #save_output=save_output, ext=ext)
+    #plot_massradius(args, chain, keys, burn=burn,
+                    #save_output=save_output, ext=ext, norm=True)
+    #plot_massradius(args, chain, keys, burn=burn,
+                    #save_output=save_output, ext='png', norm=True,
                     #Lietal=True)
     # I want to do this only for single-bin chains
-    #if 'bin' in chainfile:
+    #if 'bin' in args.chainfile:
         #chi2grid(hdr, bestfit[2], bestfit[3])
     return
 
@@ -188,11 +185,10 @@ def chi2grid(hdr, Mgroup=None, fc_group=None, Msat=None, fc_sat=1,
         #output = output.replace('.png', '-fixsat.png')
     #if os.path.isfile(output):
         #return
-    out = utils.read_header(hdr)
     params, prior_types, sat_profile_name, group_profile_name, \
         val1, val2, val3, val4, \
         datafile, cols, covfile, covcol, \
-        model, nwalkers, nsteps, nburn = out
+        model, nwalkers, nsteps, nburn = hdr
     function = getattr(models, model)
     sat_profile = getattr(nfw, sat_profile_name)
     group_profile = getattr(nfw, group_profile_name)
@@ -252,20 +248,23 @@ def chi2grid(hdr, Mgroup=None, fc_group=None, Msat=None, fc_sat=1,
         print 'Saved to', output
     return chi2, extent, fc_sat[ijmin[1]], Msat[ijmin[0]]
 
-def plot_covariance(chainfile, shape, corr=False,
-                    save_output=True, output_path='mcmcplots', ext='pdf'):
-    hdrfile = chainfile.replace('.fits', '.hdr')
-    hdr = open(hdrfile)
-    for line in hdr:
-        line = line.split()
-        if len(line) == 0:
-            continue
-        if line[0] == 'covfile':
-            covfile = line[1]
-        elif line[0] in ('covcol', 'covcols'):
-            covcols = [int(i) for i in line[1].split(',')]
-            break
-    hdr.close()
+def plot_covariance(args, hdr, shape, corr=False,
+                    save_output=True, ext='pdf'):
+    params, prior_types, val1, val2, val3, val4, \
+        datafiles, cols, covfile, covcols, exclude_bins, \
+        model, nwalkers, nsteps, nburn = hdr
+    #hdrfile = args.chainfile.replace('.fits', '.hdr')
+    #hdr = open(hdrfile)
+    #for line in hdr:
+        #line = line.split()
+        #if len(line) == 0:
+            #continue
+        #if line[0] == 'covfile':
+            #covfile = line[1]
+        #elif line[0] in ('covcol', 'covcols'):
+            #covcols = [int(i) for i in line[1].split(',')]
+            #break
+    #hdr.close()
     # probably also need to divide the correlation matrix by 1+K?
     if corr:
         covcols[0] += 1
@@ -327,7 +326,7 @@ def plot_covariance(chainfile, shape, corr=False,
     fig.subplots_adjust(left=0.10, bottom=0.10, right=0.96, top=0.96)
     fig.tight_layout()
     if save_output:
-        output = os.path.join(output_path, output.split('/')[-1])
+        output = os.path.join(args.output_path, output.split('/')[-1])
         output = output.replace('.fits', '_{0}.{1}'.format(suffix, ext))
         pylab.savefig(output, format=ext)
         pylab.close()
@@ -357,15 +356,13 @@ def plot_covariance(chainfile, shape, corr=False,
         return 10**cov
     return cov
 
-def plot_esd_verbose(chainfile, esds, esd_keys, best, burn=10000,
+def plot_esd_verbose(args, hdr, esds, esd_keys, best, burn=10000,
                      percentiles=(2.5,16,84,97.5), show=False,
-                     save_output=False, output_path='mcmcplots', ext='png'):
+                     save_output=False, ext='png'):
     # plot esd with extra information
-    out = utils.read_header(chainfile.replace('.fits', '.hdr'))
-    params, prior_types, sat_profile_name, group_profile_name, \
-        val1, val2, val3, val4, \
-        datafiles, cols, covfile, covcol, \
-        model, nwalkers, nsteps, nburn = out
+    params, prior_types, val1, val2, val3, val4, \
+        datafiles, cols, covfile, covcols, exclude_bins, \
+        model, nwalkers, nsteps, nburn = hdr
     if (type(datafiles) == str and len(esd_keys) == 1) or \
         len(datafiles) != len(esd_keys):
         msg = 'ERROR: number of data files does not match number of ESDs'
@@ -441,7 +438,7 @@ def plot_esd_verbose(chainfile, esds, esd_keys, best, burn=10000,
         inset.set_xlabel('$R$')
         inset.set_ylabel('$\Delta\Sigma$')
     if save_output:
-        output = os.path.join(output_path, output.split('/')[-1])
+        output = os.path.join(args.output_path, output.split('/')[-1])
         output = output.replace('.fits', '_esd_verbose.' + ext)
         pylab.savefig(output, format=ext)
         pylab.close()
@@ -458,32 +455,40 @@ def plot_esd_verbose(chainfile, esds, esd_keys, best, burn=10000,
            median_signal, per_signal, residuals)
     return out
 
-def plot_esd(chainfile, chain, keys, esds, esd_keys, best, burn=10000,
+def plot_esd(args, hdr, chain, keys, esds, esd_keys, best, burn=10000,
              percentiles=(2.5,16,84,97.5),
-             show=False, save_output=False,
-             output_path='mcmcplots', ext='png'):
+             show=False, save_output=False, ext='png'):
     # plot the ESD in the format that will go in the paper
-    out = utils.read_header(chainfile.replace('.fits', '.hdr'))
-    params, prior_types, sat_profile_name, group_profile_name, \
-        val1, val2, val3, val4, \
-        datafiles, cols, covfile, covcol, \
-        model, nwalkers, nsteps, nburn = out
-    if (type(datafiles) == str and len(esd_keys) == 1) or \
-        len(datafiles) != len(esd_keys):
+    params, prior_types, val1, val2, val3, val4, \
+        datafiles, cols, covfile, covcols, exclude_bins, \
+        model, nwalkers, nsteps, nburn = hdr
+    #print datafiles
+    #print esd_keys, len(esd_keys)
+    #print (isinstance(datafiles, basestring) and len(esd_keys) != 1)
+    #print (len(datafiles) != len(esd_keys))
+    if (isinstance(datafiles, basestring) and len(esd_keys) != 1) or \
+        (hasattr(datafiles, '__iter__') and len(datafiles) != len(esd_keys)):
         msg = 'ERROR: number of data files does not match number of ESDs'
         print msg
         return
+    if isinstance(datafiles, basestring):
+        datafiles = [datafiles]
     n = len(datafiles)
-    signal = [[] for i in xrange(n)]
-    cross = [[] for i in xrange(n)]
-    signal_err = [[] for i in xrange(n)]
+    #signal = [[] for i in xrange(n)]
+    #cross = [[] for i in xrange(n)]
+    #signal_err = [[] for i in xrange(n)]
     residuals = []
     res_bins = numpy.arange(-3, 3.1, 0.5)
     t = numpy.linspace(-3, 3, 100)
     gauss = numpy.exp(-t**2/2) / numpy.sqrt(2*numpy.pi)
-    for i, datafile in enumerate(datafiles):
-        data = read_datafile(datafile, cols, covfile, covcol, i)
-        R, Ro, signal[i], cross[i], signal_err[i], used = data
+    # load data
+    R, signal = sampling_utils.load_datapoints(datafiles, cols,
+                                               exclude_bins)
+    Nobsbins, Nrbins = signal.shape
+    # load covariance
+    cov = sampling_utils.load_covariance(covfile, covcols,
+                                         Nobsbins, Nrbins, exclude_bins)
+    cov, icov, likenorm, signal_err, cov2d = cov
     pylab.figure(figsize=(5*n,5.5))
     xo = [0.12, 0.09, 0.07][n-1]
     axw = [0.85, 0.45, 0.308][n-1]
@@ -494,6 +499,8 @@ def plot_esd(chainfile, chain, keys, esds, esd_keys, best, burn=10000,
     t = numpy.logspace(-2, 0.7, 100)
     for i, s, x, serr, esd in itertools.izip(itertools.count(),
                                              signal, cross, signal_err, esds):
+        print s
+        print esd
         ax = pylab.axes([xo+i*axw, yo, axw, axh], xscale='log')
         #for Mo in xrange(8, 13):
             #j = numpy.argmin(abs(chain[keys == 'Msat%d' %(i+1)][0] - Mo))
@@ -546,7 +553,7 @@ def plot_esd(chainfile, chain, keys, esds, esd_keys, best, burn=10000,
         ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
         ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
     if save_output:
-        output = os.path.join(output_path, output.split('/')[-1])
+        output = os.path.join(args.output_path, output.split('/')[-1])
         output = output.replace('.fits', '_esd.' + ext)
         pylab.savefig(output, format=ext)
         pylab.close()
@@ -558,9 +565,9 @@ def plot_esd(chainfile, chain, keys, esds, esd_keys, best, burn=10000,
            bestfit, per_signal, residuals)
     return out
 
-def plot_samples(chainfile, data, keys, best, chi2, npts,
+def plot_samples(args, data, keys, best, chi2, npts,
                  burn=10000, corner_params=None,
-                 save_output=False, output_path='mcmcplots', ext='png'):
+                 save_output=False, ext='png'):
     from numpy import arange
     if 'chi2_total' in keys:
         chi2_key = 'chi2_total'
@@ -591,7 +598,7 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
     pylab.tight_layout()
     fig.subplots_adjust(hspace=0)
     if save_output:
-        output = os.path.join(output_path, output.split('/')[-1])
+        output = os.path.join(args.output_path, output.split('/')[-1])
         output = output.replace('.fits', '_trace.png')
         pylab.savefig(output, format='png')
         pylab.close()
@@ -615,17 +622,17 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
     x.append(numpy.percentile(data[keys == chi2_key], 84) - x[0])
     #print x
     #print 'median chi^2 = %.2f_{-%.2f}^{+%.2f}' %tuple(x)
-    #cat = chainfile[-6]
+    #cat = args.chainfile[-6]
     #x = data[keys == chi2_key][0]
     data1 = numpy.array([data[keys == key][0] for key in keys1])
     #truths1 = [numpy.median(data[keys == key][0][best]/a)
                #for key, a in itertools.izip(keys1, norm)]
     #truths1 = [d[best] for d in data1]
-    if 'offcenter' in chainfile:
+    if 'offcenter' in args.chainfile:
         line = ''
     else:
         line = '0 & '
-    logfile = chainfile.replace('.fits', '.out')
+    logfile = args.chainfile.replace('.fits', '.out')
     log = open(logfile, 'w')
     print >>log, '# param  median  err_lo  err_hi'
     #logx1 = numpy.log10(numpy.array(x1))
@@ -654,7 +661,7 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
             line = '\n' + line + '\n'
     log.close()
     print 'Saved to', logfile
-    if 'fiducial' in chainfile or 'rt' in chainfile:
+    if 'fiducial' in args.chainfile or 'rt' in args.chainfile:
         for i in xrange(1, 4):
             key = 'rt%d' %i
             d = data[keys == key][0]
@@ -679,7 +686,7 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
     #for i, key in enumerate(keys1):
         #if 'M' in key:
             #data1[i] = numpy.log10(data1[i])
-    #data1 = 
+    #data1 =
     corner = plottools.corner(data1, labels=labels1, bins=25, bins1d=50,
                               #clevels=(0.68,0.95,0.99),
                               #output=output,
@@ -730,7 +737,7 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
         print 'Saved to', output
 
     # plot rt's and Msub's
-    if 'fiducial' in chainfile:
+    if 'fiducial' in args.chainfile:
         keys1 = ('rt1', 'rt2', 'rt3', 'Msat1_rt', 'Msat2_rt', 'Msat3_rt')
         data1 = numpy.array([data[keys == key][0] for key in keys1])
         for i in xrange(3, 6):
@@ -787,7 +794,7 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
         print 'Saved to', output
     return
 
-def plot_satsignal(chainfile, chain, keys, Ro, signal, signal_err,
+def plot_satsignal(args, chain, keys, Ro, signal, signal_err,
                    burn=0, thin=100, h=1, Om=0.3, Ol=0.7):
     from itertools import count, izip
     from matplotlib import cm, colors as mplcolors
@@ -852,7 +859,7 @@ def plot_satsignal(chainfile, chain, keys, Ro, signal, signal_err,
     legend = ax.legend(loc='upper right', numpoints=1)
     legend.get_frame().set_alpha(0)
     fig.tight_layout()
-    output = chainfile.replace('outputs/', 'plots/')
+    output = args.chainfile.replace('outputs/', 'plots/')
     output = output.replace('.fits', '_satsignal.pdf')
     pylab.savefig(output, format=output[-3:])
     print 'Saved to', output
@@ -864,7 +871,7 @@ def plot_satsignal(chainfile, chain, keys, Ro, signal, signal_err,
     print 'Saved to', output
     return
 
-def read_datafile(datafile, cols, covfile, covcols, obsbin):
+def read_datafile(datafile, cols, covfile, covcols, obsbin, Nobsbins):
     cols = numpy.append(cols, cols[1]+1)
     data = readfile.table(datafile, cols=cols)
     if len(cols) == 3:
@@ -880,7 +887,7 @@ def read_datafile(datafile, cols, covfile, covcols, obsbin):
     if len(covcols) == 2:
         # cov[1] is (1+K)
         cov = cov[0] / cov[1]
-    cov = cov.reshape((3,3,len(Ro),len(Ro)))
+    cov = cov.reshape((Nobsbins,Nobsbins,Nrbins,Nrbins))
     err = numpy.sqrt(numpy.diag(cov[obsbin][obsbin]))
     used = numpy.ones(len(esd), dtype=bool)
     return R, Ro, esd, cross, err, used
@@ -896,7 +903,6 @@ def convert_groupmasses(chain, keys, hdr):
     keys = list(keys)
 
     to = time()
-    hdr = utils.read_header(hdr)
     jfc = keys.index('fc_group')
     for i in xrange(1, 4):
         z = hdr[4][hdr[0] == 'zgal%d' %i][0]
@@ -967,6 +973,16 @@ def sis_gammat(r, re):
     if re <= 0:
         return numpy.inf
     return re / (2*r)
+
+
+def read_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('chainfile', nargs='?')
+    parser.add_argument('--output-path', dest='output_path',
+                        default='mcmcplots')
+    args = parser.parse_args()
+    return args
+
 
 if __name__ == '__main__':
     main()
