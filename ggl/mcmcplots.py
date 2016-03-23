@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-import glob
-import itertools
 import numpy
 import os
 import plottools
@@ -10,14 +8,23 @@ import sys
 import stattools
 from astro.clusters import conversions
 from astropy.io import fits
+from itertools import count, izip
 from matplotlib import cm, colors as mplcolors, ticker
+from numpy import arange
 from scipy import optimize, stats
 from uncertainties import ufloat
 
-# local
+# Until matplotlib is upgraded to >=1.5
+import colormaps
+
+## local
+sys.path.append(os.getcwd())
 import models
-import nfw
-import utils
+#import nfw
+#import utils
+from kids_ggl_pipeline.halomodel import hm_utils, nfw, utils
+from kids_ggl_pipeline.sampling import sampling_utils
+
 
 from astro import cosmology
 cosmology.h = 1
@@ -70,15 +77,17 @@ purple = (0.8,0,0.4)
 bcolor = [orange, yellow, cyan]
 
 
-def main(save_output=True, burn=100000, ext='pdf',
+def main(save_output=True, output_path='mcmcplots', burn=200000, ext='pdf',
          corner_params=None):
     paramtypes = ('function', 'read', 'uniform', 'loguniform',
                   'normal', 'lognormal', 'fixed')
     chainfile = sys.argv[1]
     if len(sys.argv) == 3:
         output_path = sys.argv[2]
-    else:
-        output_path = 'mcmcplots'
+    root = chainfile.split('/')[-1][:-5]
+    output_path = os.path.join(output_path, root)
+    if not os.path.isdir(output_path):
+        os.makedirs(output_path)
     hdr = chainfile.replace('.fits', '.hdr')
     print 'Reading file', chainfile, '...'
     data = fits.getdata(chainfile)
@@ -86,10 +95,10 @@ def main(save_output=True, burn=100000, ext='pdf',
     good = (data.field('chi2') > 0) & (data.field('chi2') < 9999)
     chain, keys = numpy.transpose([(data.field(key)[good], key)
                                    for key in names])
-    if 'linpriors' not in chainfile:
-        for i, key in enumerate(keys):
-            if 'Msat' in key or 'Mgroup' in key:
-                chain[i] = 10**chain[i]
+    #if 'linpriors' not in chainfile:
+        #for i, key in enumerate(keys):
+            #if 'Msat' in key or 'Mgroup' in key:
+                #chain[i] = 10**chain[i]
     lnlike = data.field('lnlike')[good]
 
     print len(lnlike), 'samples'
@@ -122,25 +131,60 @@ def main(save_output=True, burn=100000, ext='pdf',
     print 'Plotting...'
     show = not save_output
 
-    esds, esd_keys = numpy.transpose([(data.field('esd%d' %i)[good],
-                                       'esd%d' %i)
-                                      for i in xrange(1, 4)])
+    # get all esds
+    if 'esd1' in data.names:
+        esd_name = 'esd'
+    else:
+        esd_name = 'esd_total'
+    i = 1
+    esd_keys = ['{0}1'.format(esd_name)]
+    while True:
+        i += 1
+        key = '{0}{1}'.format(esd_name, i)
+        if key in names:
+            esd_keys.append(key)
+        else:
+            break
+    print esd_keys
+    esds = numpy.array([data.field(key)[good] for key in esd_keys])
+    print esds.shape
     chi2 = data.field(chi2_key)[good]
 
-    out = plot_esd_verbose(chainfile, esds, esd_keys, best,
-                           burn=burn, show=show,
-                           save_output=save_output,
-                           output_path=output_path, ext=ext)
+    out = utils.read_header(chainfile.replace('.fits', '.hdr'))
+    params, prior_types, \
+        val1, val2, val3, val4, \
+        datafiles, cols, covfile, covcols, exclude_bins, \
+        model, nwalkers, nsteps, nburn = out
+    R, signal = sampling_utils.load_datapoints(datafiles, cols, exclude_bins)
+    Nobsbins, Nrbins = signal.shape
+    if (isinstance(datafiles, basestring) and len(esd_keys) == 1) or \
+            Nobsbins != len(esd_keys):
+        msg = 'ERROR: number of data files does not match number of ESDs'
+        print msg
+        return
+    cov = sampling_utils.load_covariance(covfile, covcols, Nobsbins, Nrbins,
+                                         exclude_bins)
+    cov, icov, likenorm, signal_err, cov2d = cov
+    # I just always have corr one column after cov
+    covcols[0] += 1
+    corr = sampling_utils.load_covariance(covfile, covcols, Nobsbins, Nrbins,
+                                          exclude_bins)[0]
+
+    #out = plot_esd_verbose(chainfile, esds, esd_keys, best,
+                           #burn=burn, show=show,
+                           #save_output=save_output,
+                           #output_path=output_path, ext=ext)
     out = plot_esd(chainfile, chain, keys, esds, esd_keys, best,
+                   R, signal, signal_err, Nobsbins, Nrbins,
                    burn=burn, show=show, save_output=save_output,
                    output_path=output_path, ext=ext)
-    Ro, signal, signal_err, used, \
-        median_signal, percent_signal, residuals = out
+    model_bestfit, model_percentiles = out
 
 
-    corr = plot_covariance(chainfile, (len(esds),len(esds[0][0])),
-                           corr=True, save_output=save_output, ext=ext)
-    cov = plot_covariance(chainfile, (len(esds),len(esds[0][0])),
+    corr = plot_covariance(chainfile, corr, Nobsbins, Nrbins,
+                           corr=True, save_output=save_output,
+                           output_path=output_path, ext=ext)
+    cov = plot_covariance(chainfile, cov, Nobsbins, Nrbins,
                           save_output=save_output,
                           output_path=output_path, ext=ext)
     Nobsbins, Nrbins = numpy.array(signal).shape
@@ -150,16 +194,15 @@ def main(save_output=True, burn=100000, ext='pdf',
     icov = numpy.linalg.inv(cov)
     icov = icov.reshape((Nobsbins,Nrbins,Nobsbins,Nrbins))
     icov = numpy.transpose(icov, axes=(2,0,3,1))
-    chi2bf = numpy.array([numpy.outer(residuals[m], residuals[n]) * icov[m][n]
-                          for m in xrange(Nobsbins)
-                          for n in xrange(Nobsbins)]).sum()
-    print 'chi2_bestfit = %.2f' %chi2bf
+    #chi2bf = numpy.array([numpy.outer(residuals[m], residuals[n]) * icov[m][n]
+                          #for m in xrange(Nobsbins)
+                          #for n in xrange(Nobsbins)]).sum()
+    #print 'chi2_bestfit = %.2f' %chi2bf
 
 
-    plot_samples(chainfile, chain, keys, best, chi2bf,
-                 len(Ro[used])*len(signal), burn=burn,
-                 corner_params=corner_params, save_output=save_output,
-                 output_path=output_path, ext=ext)
+    plot_samples(chainfile, chain, keys, best,
+                 Nobsbins*Nrbins, burn=burn, corner_params=corner_params,
+                 save_output=save_output, output_path=output_path, ext=ext)
     #plot_satsignal(chainfile, chain, keys, Ro, signal, signal_err,
                    #burn=burn)
     #plot_massradius(chainfile, chain, keys, burn=burn,
@@ -197,14 +240,16 @@ def chi2grid(hdr, Mgroup=None, fc_group=None, Msat=None, fc_sat=1,
     sat_profile = getattr(nfw, sat_profile_name)
     group_profile = getattr(nfw, group_profile_name)
     if datafile_index > -1:
-        R, Ro, esd, esd_err, used = read_datafile(datafile[datafile_index],
+        R, Ro, esd, esd_err, used = read_datafile(len(datafile),
+                                                  datafile[datafile_index],
                                                   cols)
         R = [R for i in xrange(len(datafile))]
         val1[params == 'Mgroup%d' %(datafile_index+1)] = Mgroup
         jM = (params == 'Msat%d' %(datafile_index+1))
         # this only for simulate_data.py
     else:
-        R, Ro, esd, esd_err, used = read_datafile(datafile, cols)
+        R, Ro, esd, esd_err, used = read_datafile(len(datafile),
+                                                  datafile, cols)
         val1[params == 'Mgroup'] = Mgroup
         jM = (params == 'Msat')
     val2[params == 'fc_group'] = fc_group
@@ -252,8 +297,13 @@ def chi2grid(hdr, Mgroup=None, fc_group=None, Msat=None, fc_sat=1,
         print 'Saved to', output
     return chi2, extent, fc_sat[ijmin[1]], Msat[ijmin[0]]
 
-def plot_covariance(chainfile, shape, corr=False,
+def plot_covariance(chainfile, cov, Nobsbins, Nrbins, corr=False,
                     save_output=True, output_path='mcmcplots', ext='pdf'):
+    #if corr:
+    try:
+        cmap = cm.viridis
+    except AttributeError:
+        cmap = colormaps.viridis
     hdrfile = chainfile.replace('.fits', '.hdr')
     hdr = open(hdrfile)
     for line in hdr:
@@ -268,14 +318,13 @@ def plot_covariance(chainfile, shape, corr=False,
     hdr.close()
     # probably also need to divide the correlation matrix by 1+K?
     if corr:
-        covcols[0] += 1
-        suffix = 'corr'
+        output = os.path.join(output_path, 'correlation.{0}'.format(ext))
         vmin = -0.15
         vmax = 0.7
         log = False
         cbarticks = numpy.arange(-0.1, 0.71, 0.1)
     else:
-        suffix = 'cov'
+        output = os.path.join(output_path, 'covariance.{0}'.format(ext))
         vmin = -2.5
         vmax = 3.5
         #log = True
@@ -284,34 +333,18 @@ def plot_covariance(chainfile, shape, corr=False,
     #vmin = 0
     #vmax = 1
     #log = False
-    cov = readfile.table(covfile, cols=covcols)
-    if len(covcols) == 2:
-        cov = cov[0] / cov[1]
-    if corr:
-        print 'max(corr) =', cov[cov < 1].max()
-        print 'min(corr) =', cov.min()
-    cov = cov.reshape((shape[0],shape[0],shape[1],shape[1]))
-
-    ## this is what I have in run.py
-    #cov = numpy.loadtxt(covfile, usecols=[covcol])
-    ## 4-d matrix
-    #cov = cov.reshape((shape[0],shape[0],shape[1],shape[1]))
-    #print cov[0][1][4], cov.shape
-    #exit()
-    ## switch axes to have the diagonals aligned consistently
-    #cov = numpy.transpose(cov, axes=(0,2,1,3))
 
     # now plot full covariances
     if log:
         cov = numpy.log10(cov)
-    fig, axes = pylab.subplots(figsize=(4*shape[0],4*shape[0]),
-                               nrows=shape[0], ncols=shape[0])
+    fig, axes = pylab.subplots(figsize=(4*Nobsbins,4*Nobsbins),
+                               nrows=Nobsbins, ncols=Nobsbins)
     for m, row in enumerate(axes):
         for n, ax in enumerate(row):
-            title = r'$({0},{1})$'.format(shape[0]-m, n+1)
-            img = ax.imshow(cov[m][2-n], extent=(0.02,2,0.02,2),
-                            origin='lower', cmap=cm.CMRmap_r,
-                            interpolation='nearest', vmin=vmin, vmax=vmax)
+            title = r'$({0},{1})$'.format(Nobsbins-m, n+1)
+            img = ax.imshow(cov[m][2-n], extent=(0.01,2,0.01,2),
+                            origin='lower', cmap=cmap, interpolation='nearest',
+                            vmin=vmin, vmax=vmax)
             ax.set_xscale('log')
             ax.set_yscale('log')
             ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
@@ -327,8 +360,8 @@ def plot_covariance(chainfile, shape, corr=False,
     fig.subplots_adjust(left=0.10, bottom=0.10, right=0.96, top=0.96)
     fig.tight_layout()
     if save_output:
-        output = os.path.join(output_path, output.split('/')[-1])
-        output = output.replace('.fits', '_{0}.{1}'.format(suffix, ext))
+        #output = os.path.join(output_path, output.split('/')[-1])
+        #output = output.replace('.fits', '_{0}.{1}'.format(suffix, ext))
         pylab.savefig(output, format=ext)
         pylab.close()
         print 'Saved to', output
@@ -346,8 +379,7 @@ def plot_covariance(chainfile, shape, corr=False,
     for tl in cbar.ax.get_yticklabels():
         tl.set_fontsize(18)
     if save_output:
-        output = output.replace('_{0}.{1}'.format(suffix, ext),
-                                '_{0}_cbar.{1}'.format(suffix, ext))
+        output = output.replace('.{0}'.format(ext), '_cbar.{0}'.format(ext))
         pylab.savefig(output, format=ext)
         pylab.close()
         print 'Saved to', output
@@ -362,22 +394,22 @@ def plot_esd_verbose(chainfile, esds, esd_keys, best, burn=10000,
                      save_output=False, output_path='mcmcplots', ext='png'):
     # plot esd with extra information
     out = utils.read_header(chainfile.replace('.fits', '.hdr'))
-    params, prior_types, sat_profile_name, group_profile_name, \
+    params, prior_types, \
         val1, val2, val3, val4, \
-        datafiles, cols, covfile, covcol, \
+        datafiles, cols, covfile, covcol, exclude_bins, \
         model, nwalkers, nsteps, nburn = out
-    if (type(datafiles) == str and len(esd_keys) == 1) or \
-        len(datafiles) != len(esd_keys):
+    n = len(datafiles)
+    if (isinstance(datafiles, basestring) and len(esd_keys) == 1) or \
+            n != len(esd_keys):
         msg = 'ERROR: number of data files does not match number of ESDs'
         print msg
         return
-    n = len(datafiles)
     signal = [[] for i in xrange(n)]
     cross = [[] for i in xrange(n)]
     signal_err = [[] for i in xrange(n)]
     residuals = []
     for i, datafile in enumerate(datafiles):
-        data = read_datafile(datafile, cols, covfile, covcol, i)
+        data = read_datafile(n, datafile, cols, covfile, covcol, i)
         R, Ro, signal[i], cross[i], signal_err[i], used = data
     pylab.figure(figsize=(5*n,4.5))
     xo = [0.12, 0.09, 0.06][n-1]
@@ -385,7 +417,7 @@ def plot_esd_verbose(chainfile, esds, esd_keys, best, burn=10000,
     yo = 0.16
     axh = 0.82
     inset_ylim = [(0, 50), (-10, 30), (-10, 30)]
-    for i, s, serr, esd in itertools.izip(itertools.count(),
+    for i, s, serr, esd in izip(count(),
                                           signal, signal_err, esds):
         ax = pylab.axes([xo+i*axw, yo, axw, axh], xscale='log')
         median_signal = numpy.median(esd[burn:], axis=0)
@@ -458,122 +490,108 @@ def plot_esd_verbose(chainfile, esds, esd_keys, best, burn=10000,
            median_signal, per_signal, residuals)
     return out
 
-def plot_esd(chainfile, chain, keys, esds, esd_keys, best, burn=10000,
-             percentiles=(2.5,16,84,97.5),
+def plot_esd(chainfile, chain, keys, esds, esd_keys, best,
+             R, signal, signal_err, Nobsbins, Nrbins,
+             burn=10000, percentiles=(2.5,16,84,97.5),
              show=False, save_output=False,
              output_path='mcmcplots', ext='png'):
-    # plot the ESD in the format that will go in the paper
-    out = utils.read_header(chainfile.replace('.fits', '.hdr'))
-    params, prior_types, sat_profile_name, group_profile_name, \
-        val1, val2, val3, val4, \
-        datafiles, cols, covfile, covcol, \
-        model, nwalkers, nsteps, nburn = out
-    if (type(datafiles) == str and len(esd_keys) == 1) or \
-        len(datafiles) != len(esd_keys):
-        msg = 'ERROR: number of data files does not match number of ESDs'
-        print msg
-        return
-    n = len(datafiles)
-    signal = [[] for i in xrange(n)]
-    cross = [[] for i in xrange(n)]
-    signal_err = [[] for i in xrange(n)]
-    residuals = []
-    res_bins = numpy.arange(-3, 3.1, 0.5)
-    t = numpy.linspace(-3, 3, 100)
-    gauss = numpy.exp(-t**2/2) / numpy.sqrt(2*numpy.pi)
-    for i, datafile in enumerate(datafiles):
-        data = read_datafile(datafile, cols, covfile, covcol, i)
-        R, Ro, signal[i], cross[i], signal_err[i], used = data
-    pylab.figure(figsize=(5*n,5.5))
-    xo = [0.12, 0.09, 0.07][n-1]
-    axw = [0.85, 0.45, 0.308][n-1]
-    yo = 0.15
-    axh = 0.82
-    Rsat = [0.05, 0.20, 0.35, 1.0]
-    Mstar = (10.45, 10.51, 10.66)
+    """
+    plot the ESD in the format that will go in the paper
+
+    """
+    fig, axes = pylab.subplots(figsize=(5*Nobsbins,5), ncols=Nobsbins)
+    #Rsat = [0.05, 0.20, 0.35, 1.0]
+    #Mstar = (10.45, 10.51, 10.66)
     t = numpy.logspace(-2, 0.7, 100)
-    for i, s, x, serr, esd in itertools.izip(itertools.count(),
-                                             signal, cross, signal_err, esds):
-        ax = pylab.axes([xo+i*axw, yo, axw, axh], xscale='log')
-        #for Mo in xrange(8, 13):
-            #j = numpy.argmin(abs(chain[keys == 'Msat%d' %(i+1)][0] - Mo))
-            #ax.plot(Ro[used], chain[keys == 'esd%i' %(i+1)][0][j], ':',
-                    #color=red, zorder=20)
-            #print 'Mo =', Mo, 'chi2 =', chain[keys == 'chi2'][0][j]
-        #bestfit = numpy.median(esd[burn:], axis=0)
+    model_percentiles = []
+    for i, ax, Ro, s, serr, esd in izip(count(), axes, R, signal,
+                                        signal_err, esds):
+        ##for Mo in xrange(8, 13):
+            ##j = numpy.argmin(abs(chain[keys == 'Msat%d' %(i+1)][0] - Mo))
+            ##ax.plot(Ro, chain[keys == 'esd%i' %(i+1)][0][j], ':',
+                    ##color=red, zorder=20)
+            ##print 'Mo =', Mo, 'chi2 =', chain[keys == 'chi2'][0][j]
+        ##bestfit = numpy.median(esd[burn:], axis=0)
         bestfit = esd[burn:][best]
-        residuals.append(s[used] - bestfit)
         per_signal = [numpy.percentile(esd[burn:], p, axis=0)
                       for p in percentiles]
-        ax.errorbar(Ro[used], s[used], yerr=serr[used],
+        #per_signal = numpy.percentile(esd[burn:], percentiles, axis=0)
+        model_percentiles.append(per_signal)
+        ax.errorbar(Ro, s, yerr=serr,
                     fmt='o', color='k', mec='k', mfc='k',
                     ms=10, mew=2, elinewidth=2, zorder=10)
-        #ax.errorbar(Ro[used], x[used], yerr=serr[used],
-                    #fmt='o', color='0.7', mec='0.7', mfc='none',
-                    #ms=6, mew=1, elinewidth=1, zorder=9)
-        #ax.plot(Ro[used], esd[best], '-', color='0.5')
-        ax.plot(Ro[used], bestfit, '-', color='k')
-        #ax.plot(Ro[used], per_signal[0], '-', color='k')
-        #ax.plot(Ro[used], per_signal[3], '-', color='k')
-        #ax.plot(Ro[used], per_signal[1], '-', color='k')
-        #ax.plot(Ro[used], per_signal[2], '-', color='k')
-        ax.fill_between(Ro[used], per_signal[0], per_signal[3],
+        ##ax.errorbar(Ro, x, yerr=serr,
+                    ##fmt='o', color='0.7', mec='0.7', mfc='none',
+                    ##ms=6, mew=1, elinewidth=1, zorder=9)
+        ##ax.plot(Ro, esd[best], '-', color='0.5')
+        ax.plot(Ro, bestfit, '-', color='k')
+        ##ax.plot(Ro, per_signal[0], '-', color='k')
+        ##ax.plot(Ro, per_signal[3], '-', color='k')
+        ##ax.plot(Ro, per_signal[1], '-', color='k')
+        ##ax.plot(Ro, per_signal[2], '-', color='k')
+        ax.fill_between(Ro, per_signal[0], per_signal[3],
                         color=bcolor[0], lw=0)
-        ax.fill_between(Ro[used], per_signal[0], per_signal[1],
+        ax.fill_between(Ro, per_signal[0], per_signal[1],
                         color=bcolor[1])
-        ax.fill_between(Ro[used], per_signal[2], per_signal[3],
+        ax.fill_between(Ro, per_signal[2], per_signal[3],
                         color=bcolor[1])
-        ax.plot(t, 10**Mstar[i]/(numpy.pi*(1e6*t)**2), 'k--')
-        #ax.plot(Ro[used], per_signal[0], '-', color='0.2', lw=1)
-        #ax.plot(Ro[used], per_signal[3], '-', color='0.2', lw=1)
-        label = r'$%.2f<R_{\rm sat}\leq%.2f$' %(Rsat[i], Rsat[i+1])
-        if i == 2:
-            label = label[:-2] + label[-1]
-        ax.annotate(label, xy=(1.2,80), ha='right', va='center',
-                    fontsize=22)
+        ##ax.plot(t, 10**Mstar[i]/(numpy.pi*(1e6*t)**2), 'k--')
+        ##ax.plot(Ro, per_signal[0], '-', color='0.2', lw=1)
+        ##ax.plot(Ro, per_signal[3], '-', color='0.2', lw=1)
+        #label = r'$%.2f<R_{\rm sat}\leq%.2f$' %(Rsat[i], Rsat[i+1])
+        #if i == 2:
+            #label = label[:-2] + label[-1]
+        #ax.annotate(label, xy=(1.2,80), ha='right', va='center',
+                    #fontsize=22)
+        ax.axhline(0, ls='--', color='k', lw=1)
+        ax.set_xscale('log')
+        ax.set_xlim(0.01, 2)
+        ax.set_ylim(-20, 150)
+        ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('$%.2f$'))
+        if i == 0:
+            ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('$%d$'))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
         if i == 0:
             ylabel = r'$\Delta\Sigma_{\rm sat}\,(h\,\mathrm{M_\odot pc^{-2}})$'
             ax.set_ylabel(ylabel)
         else:
             ax.set_yticklabels([])
-            ax.get_xticklabels()[1].set_visible(False)
-        ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
-        if i == 0:
-            ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%d'))
+            #ax.get_xticklabels()[0].set_visible(False)
         ax.set_xlabel(r'$R\,(h^{-1}{\rm Mpc})$')
-        ax.set_xlim(0.02, 2)
-        ax.set_ylim(-20, 100)
-        ax.yaxis.set_major_locator(ticker.MultipleLocator(50))
-        ax.yaxis.set_minor_locator(ticker.MultipleLocator(10))
+    fig.tight_layout(pad=0.4, w_pad=0)
     if save_output:
-        output = os.path.join(output_path, output.split('/')[-1])
-        output = output.replace('.fits', '_esd.' + ext)
-        pylab.savefig(output, format=ext)
+        #output = os.path.join(output_path, output.split('/')[-1])
+        #output = output.replace('.fits', '_esd.' + ext)
+        output = os.path.join(output_path, 'esd.{0}'.format(ext))
+        fig.savefig(output, format=ext)
         pylab.close()
         print 'Saved to', output
     elif show:
         pylab.show()
-    residuals = numpy.array(residuals)
-    out = (Ro, signal, signal_err, used,
-           bestfit, per_signal, residuals)
-    return out
+    return bestfit, numpy.array(model_percentiles)
 
-def plot_samples(chainfile, data, keys, best, chi2, npts,
+def plot_samples(chainfile, data, keys, best, npts,
                  burn=10000, corner_params=None,
                  save_output=False, output_path='mcmcplots', ext='png'):
-    from numpy import arange
+    """
+    Should be a lot more general in scope
+    
+    """
     if 'chi2_total' in keys:
         chi2_key = 'chi2_total'
     else:
         chi2_key = 'chi2'
     data, keys = numpy.transpose([(data[keys == key][0], key)
                                   for key in keys if 'esd' not in key])
+    #if burn + 10000 > 
+    #chi2 = data[keys == 'chi2'][burn:].min()
     Nparams = len(keys)
     avgs = []
     xmax = max([len(value) for value in data])
     fig, axes = pylab.subplots(figsize=(8,Nparams),
                                nrows=Nparams, sharex=True)
-    for ax, value, key in itertools.izip(axes, data, keys):
+    for ax, value, key in izip(axes, data, keys):
         ax.plot(value, ',', color='0.7')
         to, avg = runningavg(value, thin=len(value)/50)
         #ax.plot(to, cumavg(value, samples=len(to)),
@@ -591,8 +609,9 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
     pylab.tight_layout()
     fig.subplots_adjust(hspace=0)
     if save_output:
-        output = os.path.join(output_path, output.split('/')[-1])
-        output = output.replace('.fits', '_trace.png')
+        #output = os.path.join(output_path, output.split('/')[-1])
+        #output = output.replace('.fits', '_trace.png')
+        output = os.path.join(output_path, 'trace.png')
         pylab.savefig(output, format='png')
         pylab.close()
         print 'Saved to', output
@@ -617,9 +636,14 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
     #print 'median chi^2 = %.2f_{-%.2f}^{+%.2f}' %tuple(x)
     #cat = chainfile[-6]
     #x = data[keys == chi2_key][0]
+
+    keys1 = [key for key in keys
+             if ('esd' not in key and key != 'lnPderived')]
+    print keys1
     data1 = numpy.array([data[keys == key][0] for key in keys1])
+    print data1.shape
     #truths1 = [numpy.median(data[keys == key][0][best]/a)
-               #for key, a in itertools.izip(keys1, norm)]
+               #for key, a in izip(keys1, norm)]
     #truths1 = [d[best] for d in data1]
     if 'offcenter' in chainfile:
         line = ''
@@ -633,7 +657,7 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
     #x1err = numpy.log10(numpy.array(x1)+numpy.array(x1err)) - logx1
     #x2err = numpy.log10(numpy.array(x2)+numpy.array(x2err)) - logx2
     truths1 = []
-    for key, d in itertools.izip(keys1, data1):
+    for key, d in izip(keys1, data1):
         m = numpy.median(d)
         if 'M' in key:
             logm = numpy.log10(m)
@@ -654,25 +678,27 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
             line = '\n' + line + '\n'
     log.close()
     print 'Saved to', logfile
-    if 'fiducial' in chainfile or 'rt' in chainfile:
-        for i in xrange(1, 4):
-            key = 'rt%d' %i
-            d = data[keys == key][0]
-            m = numpy.median(d)
-            vals = (m, m - numpy.percentile(d, 16),
-                    numpy.percentile(d, 84) - m)
-            print key, '%.3f -%.3f +%.3f' %vals
-    fc = numpy.median(data[keys == 'fc_group'][0])
-    z = [0.17, 0.19, 0.21]
-    for i in xrange(1, 4):
-        m = numpy.median(data[keys == 'Mgroup%d' %i][0])
-        c = fc * utils.cM_duffy08(m, z[i-1], h=h)
-        rhom = utils.density_average(z[i-1], h=h, Om=Om)
-        r200 = (m / (4*numpy.pi/3 * 200 * rhom)) ** (1./3.)
-        print '%d) cgroup = %.1f, rsgroup = %.2f' %(i, c, r200/c)
-    print '(chi2, npts, nparams) =', chi2, npts, len(keys1)
-    line += '%.1f/%d \\\\' %(chi2, npts - len(keys1) - 1)
-    print line
+
+    #if 'fiducial' in chainfile or 'rt' in chainfile:
+        #for i in xrange(1, 4):
+            #key = 'rt%d' %i
+            #d = data[keys == key][0]
+            #m = numpy.median(d)
+            #vals = (m, m - numpy.percentile(d, 16),
+                    #numpy.percentile(d, 84) - m)
+            #print key, '%.3f -%.3f +%.3f' %vals
+    #fc = numpy.median(data[keys == 'fchost'][0])
+    #z = [0.17, 0.19, 0.21]
+    #for i in xrange(1, 4):
+        #m = numpy.median(data[keys == 'Mhost%d' %i][0])
+        #c = fc * utils.cM_duffy08(m, z[i-1], h=h)
+        #rhom = utils.density_average(z[i-1], h=h, Om=Om)
+        #r200 = (m / (4*numpy.pi/3 * 200 * rhom)) ** (1./3.)
+        #print '%d) chost = %.1f, rshost = %.2f' %(i, c, r200/c)
+
+    #print '(chi2, npts, nparams) =', chi2, npts, len(keys1)
+    #line += '%.1f/%d \\\\' %(chi2, npts - len(keys1) - 1)
+    #print line
     print '**', len(data1), len((0.5,0.5,0.5,0.1,0.1,0.1,0.1))
     #lnlike = data[keys == 'lnlike'][0]
     #print truths1
@@ -680,16 +706,16 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
         #if 'M' in key:
             #data1[i] = numpy.log10(data1[i])
     #data1 = 
-    corner = plottools.corner(data1, labels=labels1, bins=25, bins1d=50,
+    corner = plottools.corner(data1, labels=keys1, bins=25, bins1d=50,
                               #clevels=(0.68,0.95,0.99),
                               #output=output,
-                              ticks=ticks, limits=limits,
-                              truths=truths1, truth_color=red,
-                              truths_in_1d=True, medians1d=False,
-                              percentiles1d=False,
+                              #ticks=ticks, limits=limits,
+                              #truths=truths1, truth_color=red,
+                              #truths_in_1d=True,
+                              medians1d=False, percentiles1d=False,
                               #likelihood=lnlike, likesmooth=1,
                               style1d='step',
-                              smooth=(0.5,0.5,0.5,0.1,0.2,0.2,0.2),
+                              #smooth=(0.5,0.5,0.5,0.1,0.2,0.2,0.2),
                               #smooth=(1,1,1,0.35,0.35,0.35,0.35),
                               background='filled',
                               linewidths=1, show_contour=True,
@@ -705,7 +731,7 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
             ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
         if ax.get_ylabel():
             ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
-    for ax, key, d in itertools.izip(diagonals, keys1, data1):
+    for ax, key, d in izip(diagonals, keys1, data1):
         m = numpy.median(d)
         v68 = [numpy.percentile(d, i) for i in (16, 84)]
         v95 = [numpy.percentile(d, i) for i in (2.5, 97.5)]
@@ -725,50 +751,51 @@ def plot_samples(chainfile, data, keys, best, chi2, npts,
         if ax.get_xlabel():
             ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
     if save_output:
+        output = os.path.join(output_path, 'corner.pdf')
         pylab.savefig(output, format=output[-3:])
         pylab.close()
         print 'Saved to', output
 
     # plot rt's and Msub's
-    if 'fiducial' in chainfile:
-        keys1 = ('rt1', 'rt2', 'rt3', 'Msat1_rt', 'Msat2_rt', 'Msat3_rt')
-        data1 = numpy.array([data[keys == key][0] for key in keys1])
-        for i in xrange(3, 6):
-            #data1[i] /= 1e12
-            data1[i] = numpy.log10(data1[i])
-        labels = (r'$r_{\rm t,1}$', r'$r_{\rm t,2}$', r'$r_{\rm t,3}$',
-                  r'$\log M_{{\rm sub},1}$', r'$\log M_{{\rm sub},2}$',
-                  r'$\log M_{{\rm sub},3}$')
-        truths1 = [d[best] for d in data1]
-        limits = [(0, 0.25), (0, 0.25), (0, 0.3),
-                  (10, 12.5), (10, 12.5), (10.5, 13)]
-        ticks = [arange(0, 0.25, 0.1), arange(0, 0.25, 0.1),
-                 arange(0.05, 0.26, 0.1), arange(10.5, 12.1, 0.5),
-                 arange(10.5, 12.1, 0.5), arange(11, 12.6, 0.5)]
-        corner = plottools.corner(data1, labels=labels, bins=25, bins1d=25,
-                                  ticks=ticks, limits=limits,
-                                  truths=truths1, truth_color=red,
-                                  style1d='step',
-                                  truths_in_1d=True, likelihood=lnlike,
-                                  background='filled', linewidths=1,
-                                  show_contour=True, bcolor=bcolor[:2])
-        fig, diagonals, offdiag = corner
-        for ax in offdiag:
-            ax.xaxis.set_tick_params(width=2)
-            ax.yaxis.set_tick_params(width=2)
-            if ax.get_xlabel():
-                ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
-            if ax.get_ylabel():
-                ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
-        for ax in diagonals:
-            ax.xaxis.set_tick_params(width=2)
-            if ax.get_xlabel():
-                ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
-        if save_output:
-            output1 = output.replace('_corner', '_corner_rt')
-            pylab.savefig(output1, format=output1[-3:])
-            pylab.close()
-            print 'Saved to', output1
+    #if 'fiducial' in chainfile:
+        #keys1 = ('rt1', 'rt2', 'rt3', 'Msat1_rt', 'Msat2_rt', 'Msat3_rt')
+        #data1 = numpy.array([data[keys == key][0] for key in keys1])
+        #for i in xrange(3, 6):
+            ##data1[i] /= 1e12
+            #data1[i] = numpy.log10(data1[i])
+        #labels = (r'$r_{\rm t,1}$', r'$r_{\rm t,2}$', r'$r_{\rm t,3}$',
+                  #r'$\log M_{{\rm sub},1}$', r'$\log M_{{\rm sub},2}$',
+                  #r'$\log M_{{\rm sub},3}$')
+        #truths1 = [d[best] for d in data1]
+        #limits = [(0, 0.25), (0, 0.25), (0, 0.3),
+                  #(10, 12.5), (10, 12.5), (10.5, 13)]
+        #ticks = [arange(0, 0.25, 0.1), arange(0, 0.25, 0.1),
+                 #arange(0.05, 0.26, 0.1), arange(10.5, 12.1, 0.5),
+                 #arange(10.5, 12.1, 0.5), arange(11, 12.6, 0.5)]
+        #corner = plottools.corner(data1, labels=labels, bins=25, bins1d=25,
+                                  #ticks=ticks, limits=limits,
+                                  #truths=truths1, truth_color=red,
+                                  #style1d='step',
+                                  #truths_in_1d=True, likelihood=lnlike,
+                                  #background='filled', linewidths=1,
+                                  #show_contour=True, bcolor=bcolor[:2])
+        #fig, diagonals, offdiag = corner
+        #for ax in offdiag:
+            #ax.xaxis.set_tick_params(width=2)
+            #ax.yaxis.set_tick_params(width=2)
+            #if ax.get_xlabel():
+                #ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
+            #if ax.get_ylabel():
+                #ax.yaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
+        #for ax in diagonals:
+            #ax.xaxis.set_tick_params(width=2)
+            #if ax.get_xlabel():
+                #ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%.1f'))
+        #if save_output:
+            #output1 = output.replace('_corner', '_corner_rt')
+            #pylab.savefig(output1, format=output1[-3:])
+            #pylab.close()
+            #print 'Saved to', output1
 
     if save_output:
         output = output.replace('_corner', '_corner_all')
@@ -864,7 +891,7 @@ def plot_satsignal(chainfile, chain, keys, Ro, signal, signal_err,
     print 'Saved to', output
     return
 
-def read_datafile(datafile, cols, covfile, covcols, obsbin):
+def read_datafile(n, datafile, cols, covfile, covcols, obsbin):
     cols = numpy.append(cols, cols[1]+1)
     data = readfile.table(datafile, cols=cols)
     if len(cols) == 3:
@@ -880,7 +907,7 @@ def read_datafile(datafile, cols, covfile, covcols, obsbin):
     if len(covcols) == 2:
         # cov[1] is (1+K)
         cov = cov[0] / cov[1]
-    cov = cov.reshape((3,3,len(Ro),len(Ro)))
+    cov = cov.reshape((n,n,len(Ro),len(Ro)))
     err = numpy.sqrt(numpy.diag(cov[obsbin][obsbin]))
     used = numpy.ones(len(esd), dtype=bool)
     return R, Ro, esd, cross, err, used
@@ -891,7 +918,7 @@ def chi2(model, esd, esd_err):
 def convert_groupmasses(chain, keys, hdr):
     from time import time
     from astro.clusters import profiles
-    izip = itertools.izip
+    izip = izip
     h = cosmology.h
     keys = list(keys)
 
