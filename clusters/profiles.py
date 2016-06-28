@@ -93,7 +93,6 @@ def nfw(m, z, dm=0, ref_in='200c', ref_out='500c',
         c = c * scalings.cM(m, z, ref=ref_in, scaling=scaling)
     scale = r_in / c
     # mass and uncertainty (if defined)
-    print m
     m_out = numpy.array([_mass(ci, mi, rs, err)
                          for ci, mi, rs in izip(c, m, scale)])
     if numpy.any(dm > 0):
