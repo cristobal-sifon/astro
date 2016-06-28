@@ -2,7 +2,6 @@
 import numpy
 import readfile
 from astro import constants, cosmology, units
-from astro.clusters import conversions, scalings
 from itertools import izip
 from scipy import integrate, interpolate
 
