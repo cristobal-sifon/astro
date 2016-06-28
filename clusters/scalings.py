@@ -10,6 +10,14 @@ When the observable is not given at the radius where the scaling relation was
 calculated...
 
 """
+import numpy
+import uncertainties
+from uncertainties import ufloat, umath, unumpy, Variable
+
+# local
+import arnaud_profile
+import profiles
+from astro import cosmology
 
 def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
        errors=False):
@@ -47,8 +55,6 @@ def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
         c    : concentration. Has the same type and format of both M and z
 
     """
-    from astro import cosmology
-    from uncertainties import Variable, ufloat
     if errors:
         if type(M) != Variable:
             try:
@@ -120,7 +126,8 @@ def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
     if errors:
         return c
     else:
-        return c.nominal_value
+        return unumpy.nominal_values(c)
+
 
 def csigma(sigma, z=0, dsigma=0, scaling='duffy08'):
     """
@@ -132,9 +139,6 @@ def csigma(sigma, z=0, dsigma=0, scaling='duffy08'):
         Duffy et al. (2008)
 
     """
-    import uncertainties
-    from astro import cosmology
-    from uncertainties import ufloat
 
     if float(uncertainties.__version__.split('.')[0]) < 2:
         s = ufloat((sigma, dsigma))
@@ -154,35 +158,35 @@ def csigma(sigma, z=0, dsigma=0, scaling='duffy08'):
         c = 4 / (s/700.)**0.306
     return c.nominal_value, c.std_dev
 
+
 def Mgas(mgas, z, dmgas=0, dz=0, radius='500c', scaling='okabe10'):
-  """
-  Estiamte the mass from the gas mass, generally estimated through X-ray
-  observations. Input units are Msun.
+    """
+    Estiamte the mass from the gas mass, generally estimated through X-ray
+    observations. Input units are Msun.
 
-  Available scalings:
-      Okabe et al. (2010, ApJ, 721, 875) -- Assuming self-similar slope
-      Mahdavi et al. (2012, arXiv)
+    Available scalings:
+        Okabe et al. (2010, ApJ, 721, 875) -- Assuming self-similar slope
+        Mahdavi et al. (2012, arXiv)
 
-  """
-  from uncertainties import ufloat, umath
+    """
 
-  if dmgas > 0:
-    mgas = ufloat((mgas, dmgas))
-  if dz > 0:
-    z = ufloat((z, dz))
+    if dmgas > 0:
+        mgas = ufloat((mgas, dmgas))
+    if dz > 0:
+        z = ufloat((z, dz))
 
-  if scaling == 'okabe10':
-    if radius == '500c':
-      A = umath.log10(ufloat((13.10, 0.77)))
-      #B = ufloat((1.00, 0.15))
-      B = 1
-  elif scaling == 'mahdavi12':
-    if radius == '500c':
-      A = ufloat((0.90, 0.02))
-      B = ufloat((1.04, 0.10))
+    if scaling == 'okabe10':
+        if radius == '500c':
+            A = umath.log10(ufloat((13.10, 0.77)))
+            #B = ufloat((1.00, 0.15))
+            B = 1
+    elif scaling == 'mahdavi12':
+        if radius == '500c':
+            A = ufloat((0.90, 0.02))
+            B = ufloat((1.04, 0.10))
 
-  m = 10 ** A * mgas ** B
-  return m.nominal_value, m.std_dev()
+    m = 10 ** A * mgas ** B
+    return m.nominal_value, m.std_dev()
 
 def sigma(s, z, ds=None, dz=None,
           radius='200c', scaling='evrard08', bias=(1,0.),
@@ -258,14 +262,10 @@ def sigma(s, z, ds=None, dz=None,
             parameters
 
     """
-    import numpy
-    from astro import cosmology
-
     h = cosmology.h
     Ez = cosmology.E(z)
     # best-fit parameters from the scaling
     if scaling == 'saro13':
-        from uncertainties import ufloat, unumpy
         def Mdyn(s, z, A, B, C):
             return 1e15 * (s / (A * Ez**C)) ** B
         A = ufloat(939., 0.55)
@@ -381,109 +381,102 @@ def sigma(s, z, ds=None, dz=None,
     else:
       return m
 
+
 def Tx(t, z, dt=0, dz=0, radius='500c', scaling='arnaud10'):
   return
 
+
 def Ysz(y, z, dy=0, dz=0, r_in='500c', r_out='500c', scaling='sifon13'):
-  """
-  Estimate the mass from the integrated Sunyaev-Zel'dovich effect signal Ysz in
-  Mpc^2, which is converted to the measure at the radius for each scaling
-  relation (e.g., r200c for Sifon et al.) using the Universal Pressure Profile
-  of Arnaud et al. (2010).
+    """
+    Estimate the mass from the integrated Sunyaev-Zel'dovich effect
+    signal Ysz in Mpc^2, which is converted to the measure at the
+    radius for each scaling relation (e.g., r200c for Sifon et al.)
+    using the Universal Pressure Profile of Arnaud et al. (2010).
 
-  Available scalings:
-      Andersson et al. (2011, ApJ, 738, 48) -- X-rays
-                                               originally at r500c
-      Marrone et al. (2012, ApJ, 754, 119)  -- Weak lensing
-                                               originally at r500c, r1000c,
-                                               r2500c
-      Sifon et al. (2013, ApJ, 772, 25)     -- Dynamics
-                                               originally at r200c
-  """
-  # just to help if I forget not to put the "r"
-  if r_in[0] == 'r':
-    r_in = r_in[1:]
-  if r_out[0] == 'r':
-    r_out = r_out[1:]
+    Available scalings:
+        Andersson et al. (2011, ApJ, 738, 48) -- X-rays
+            originally at r500c
+        Marrone et al. (2012, ApJ, 754, 119)  -- Weak lensing
+            originally at r500c, r1000c, r2500c
+        Sifon et al. (2013, ApJ, 772, 25)     -- Dynamics
+            originally at r200c
+    """
+    # just to help if I forget not to put the "r"
+    if r_in[0] == 'r':
+        r_in = r_in[1:]
+    if r_out[0] == 'r':
+        r_out = r_out[1:]
 
-  from uncertainties import ufloat
-  from astro import cosmology # my code
+    cosmology.Omega_M = 0.3
+    cosmology.Omega_L = 0.7
+    Ez = cosmology.E(z)
 
-  cosmology.Omega_M = 0.3
-  cosmology.Omega_L = 0.7
-  Ez = cosmology.E(z)
+    y = ufloat((y, dy))
+    z = ufloat((z, dz))
 
-  y = ufloat((y, dy))
-  z = ufloat((z, dz))
+    if scaling == 'andersson11':
+        # see Marrone et al. (2012)
+        if r_in == '500c':
+            A = ufloat((0.36, 0.03))
+            B = ufloat((0.60, 0.12))
+        m = 10 ** (14 + A) * (y / Ez ** (2./3.) / 1e-5) ** B
 
+    elif scaling == 'marrone12':
+        if r_in == '500c':
+            A = ufloat((0.367, 0.099))
+            B = ufloat((0.44, 0.12))
+        elif r_in == '1000c':
+            A = ufloat((0.254, 0.080))
+            B = ufloat((0.48, 0.11))
+        elif r_in == '2500c':
+            A = ufloat((0.254, 0.080))
+            B = ufloat((0.48, 0.11))
+        else:
+            A = ufloat((0.367, 0.099))
+            B = ufloat((0.44, 0.12))
 
-  if scaling == 'andersson11':
-    # see Marrone et al. (2012)
-    if r_in == '500c':
-      A = ufloat((0.36, 0.03))
-      B = ufloat((0.60, 0.12))
-    m = 10 ** (14 + A) * (y / Ez ** (2./3.) / 1e-5) ** B
+        m = 10 ** (14 + A) * (y / Ez ** (2./3.) / 1e-5) ** B
 
-  elif scaling == 'marrone12':
-    if r_in == '500c':
-      A = ufloat((0.367, 0.099))
-      B = ufloat((0.44, 0.12))
-    elif r_in == '1000c':
-      A = ufloat((0.254, 0.080))
-      B = ufloat((0.48, 0.11))
-    elif r_in == '2500c':
-      A = ufloat((0.254, 0.080))
-      B = ufloat((0.48, 0.11))
-    else:
-      A = ufloat((0.367, 0.099))
-      B = ufloat((0.44, 0.12))
+    # the different r_in's and r_out's still need to be well checked
+    elif scaling == 'sifon13':
+        A = ufloat((14.99, 0.07))
+        B = ufloat((0.48, 0.11))
+        if r_in != '200c':
+            f = arnaud_profile.Yratio(r_in, '200c', 'sph')
+            #print f
+            y = f * y
+        m = 10 ** A * (y / Ez ** (2./3.) / 5e-5) ** B
+        if r_out != '200c':
+            # update clusters.NFW so that it returns the error as well
+            m = read_NFW(m.nominal_value, z.nominal_value, m.std_dev(),
+                                    ref_in='200c', ref_out=r_out)
+            m = ufloat((m[0], m[1]))
 
-    m = 10 ** (14 + A) * (y / Ez ** (2./3.) / 1e-5) ** B
-
-  # the different r_in's and r_out's still need to be well checked
-  elif scaling == 'sifon13':
-    A = ufloat((14.99, 0.07))
-    B = ufloat((0.48, 0.11))
-    if r_in != '200c':
-      import arnaud_profile
-      f = arnaud_profile.Yratio(r_in, '200c', 'sph')
-      #print f
-      y = f * y
-    m = 10 ** A * (y / Ez ** (2./3.) / 5e-5) ** B
-    if r_out != '200c':
-      from astro import clusters
-      # update clusters.NFW so that it returns the error as well
-      m = clusters.read_NFW(m.nominal_value, z.nominal_value, m.std_dev(),
-                            ref_in='200c', ref_out=r_out)
-      m = ufloat((m[0], m[1]))
-
-  return m.nominal_value, m.std_dev()
+    return m.nominal_value, m.std_dev()
 
 
 def Yx(y, z, dy=0, dz=0, radius='500c', scaling='arnaud10'):
-  """
-  Estimate the mass from the X-ray pseudo-Compton parameter Yx (see Kravtsov et
-  al. 2006). Units are Msun*keV
+    """
+    Estimate the mass from the X-ray pseudo-Compton parameter Yx (see
+    Kravtsov et al. 2006). Units are Msun*keV
 
-  Available scalings:
-      Arnaud et al. (2010, A&A, 517, A92)
-  """
-  from uncertainties import ufloat
-  from astro import cosmology # my code
-  Ez = cosmology.E(z)
+    Available scalings:
+        Arnaud et al. (2010, A&A, 517, A92)
+    """
+    Ez = cosmology.E(z)
 
-  if dy > 0:
-    y = ufloat((y, dy))
-  if dz > 0:
-    z = ufloat((z, dz))
+    if dy > 0:
+        y = ufloat((y, dy))
+    if dz > 0:
+        z = ufloat((z, dz))
 
-  if scaling == 'arnaud10':
-    A = ufloat((14.567, 0.010))
-    B = ufloat((0.561, 0.018))
+    if scaling == 'arnaud10':
+        A = ufloat((14.567, 0.010))
+        B = ufloat((0.561, 0.018))
 
-    #if radius != '500c':
+        #if radius != '500c':
 
-    m = 10 ** A * (y / 2e14) ** B / Ez ** (2./5.)
-    return m.nominal_value, m.std_dev()
+        m = 10 ** A * (y / 2e14) ** B / Ez ** (2./5.)
+        return m.nominal_value, m.std_dev()
 
 

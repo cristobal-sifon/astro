@@ -12,8 +12,7 @@ from readfile import table
 
 def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
           catalogs=None, return_single=True, squeeze=False,
-          return_values=('name','ra','dec','z','index','dist','dz'),
-          path='/Users/cristobal/Documents/catalogs/'):
+          return_values=('name','ra','dec','z','index','dist','dz')):
     """
     Query different catalogs for clusters close to a given set of coordinates.
 
@@ -45,7 +44,8 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                   values are:
                         * 'maxbcg' (Koester et al. 2007)
                         * 'gmbcg' (Hao et al. 2010)
-                        * 'hecs' (Rines et al. 2013)
+                        * 'hecs2013' (Rines et al. 2013)
+                        * 'hecs2016' (Rines et al. 2016) NOT YET
                         * 'orca' (Geach, Murphy & Bower 2011)
                         * 'psz1' (Planck Collaboration XXIX 2014)
                         * 'psz2' (Planck Collaboration XXVII 2016)
@@ -79,7 +79,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                   The same formatting as for "matches" applies.
 
     """
-    available = ('maxbcg', 'gmbcg', 'hecs', 'orca', 'psz1', 'psz2',
+    available = ('maxbcg', 'gmbcg', 'hecs2013', 'orca', 'psz1', 'psz2',
                  'redmapper', 'whl')
     # some formatting for convenience
     if not hasattr(ra, '__iter__'):
@@ -118,12 +118,12 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         if name not in available:
             msg = 'WARNING: catalog {0} not available'.format(name)
             print msg
-    labels = {'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs': 'HeCS',
-              'orca': 'ORCA', 'psz1': 'PSZ1', 'psz2': 'PSZ2',
-              'redmapper': 'redMaPPer', 'whl': 'WHL'}
+    labels = {'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
+              'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1',
+              'psz2': 'PSZ2', 'redmapper': 'redMaPPer', 'whl': 'WHL'}
     filenames = {'maxbcg': 'maxbcg/maxBCG.fits',
                  'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
-                 'hecs': 'hecs/rines2013_data.fits',
+                 'hecs2013': 'hecs/2013/data.fits',
                  'orca': 'orca/fullstripe82.fits',
                  'psz1': osjoin('planck', 'PSZ-2013', 'PLCK-DR1-SZ',
                                 'COM_PCCS_SZ-union_R1.11.fits'),
@@ -134,7 +134,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                  'whl': 'whl/whl2015.fits'}
     columns = {'maxbcg': 'none,RAJ2000,DEJ2000,zph',
                'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
-               'hecs': 'Name,RAJ2000,DEJ2000,z',
+               'hecs2013': 'Name,RAJ2000,DEJ2000,z',
                'orca': 'ID,ra_bcg,dec_bcg,redshift',
                'psz1': 'NAME,RA,DEC,REDSHIFT',
                'psz2': 'NAME,RA,DEC,REDSHIFT',
