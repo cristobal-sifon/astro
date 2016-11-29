@@ -1,5 +1,6 @@
 import ezgal
 import numpy
+import urllib
 from astLib import astWCS
 try:
     from astropy.io import fits
@@ -9,6 +10,7 @@ from scipy.interpolate import interp1d
 
 # local
 import coordinates
+
 
 def absmag(mag, z, band1='megacam_r', band2='megacam_r',
            model='cb07_burst_0.1_z_0.02_salp.model', zf=5):
@@ -25,20 +27,60 @@ def absmag(mag, z, band1='megacam_r', band2='megacam_r',
     mabs = sed.get_absolute_mags(zf, band2, z)
     return mag + (mabs - mo)
 
-def extinction(ra, dec, path='../'):
-    galcoords = coordinates.eq2gal(ra, dec)
-    if galcoords[1] >= 0:
-        fitsfile = path + 'schlegel/SFD_dust_4096_ngp.fits'
+
+def extinction(ra, dec, use_ned=True, bands='UBVRIugrizJHKL', path_sfd='../',
+               verbose=False):
+    """
+    Get extinction given an RA and Dec using the Schlegel et al. (2011)
+    maps.
+
+    Set use_ned to False to get the extinction for the Megacam bands in
+    the format I have been using for CCCP. Otherwise NED will be
+    queried and the extinction in the selected bands will be returned
+    (and ugriz refer to SDSS bands).
+
+    """
+    if use_ned:
+        if verbose:
+            msg = 'Retrieveng dust extinction at RA=%.6f, Dec=%.6f from NED' \
+                  %(ra, dec)
+            print msg
+        form = 'in_csys=Equatorial'
+        form += '&in_equinox=J2000.0'
+        form += '&obs_epoch=2000.0'
+        form += '&lon=%.7fd' %ra
+        form += '&lat=%.7fd' %dec
+        form += '&pa=0.0'
+        form += '&out_csys=Equatorial'
+        form += '&out_equinox=J2000.0'
+        cmd = 'http://nedwww.ipac.caltech.edu/cgi-bin/nph-calc?' + form
+        response = urllib.urlopen(cmd)
+        text = response.read()
+        # find extinction in each band
+        ext = scipy.zeros(len(bands))
+        for line in text.split('\n'):
+            l = re.split('\s+', line)
+            if l[0] in ('Landolt', 'SDSS', 'UKIRT'):
+                j = string.find(bands, l[1])
+                if j != -1:
+                    ext[j] = float(l[3])
+        return ext
+    # note that the conversions at the bottom only work for Megacam
     else:
-        fitsfile = path + 'schlegel/SFD_dust_4096_sgp.fits'
-    wcs = astWCS.WCS(fitsfile)
-    pix = wcs.wcs2pix(galcoords[0], galcoords[1])
-    dustmap = fits.getdata(fitsfile)
-    ebv = dustmap[int(pix[1]),int(pix[0])]
-    # copied these from Henk's code -- not sure about the source
-    Ag = 3.793 * ebv
-    Ar = 2.751 * ebv
-    return ebv, Ag, Ar
+        galcoords = coordinates.eq2gal(ra, dec)
+        if galcoords[1] >= 0:
+            fitsfile = path + 'schlegel/SFD_dust_4096_ngp.fits'
+        else:
+            fitsfile = path + 'schlegel/SFD_dust_4096_sgp.fits'
+        wcs = astWCS.WCS(fitsfile)
+        pix = wcs.wcs2pix(galcoords[0], galcoords[1])
+        dustmap = fits.getdata(fitsfile)
+        ebv = dustmap[int(pix[1]),int(pix[0])]
+        # copied these from Henk's code -- not sure about the source
+        Ag = 3.793 * ebv
+        Ar = 2.751 * ebv
+        return ebv, Ag, Ar
+
 
 def mstar(z, band='megacam_r', zf=5.,
           apparent=True, model='cb07_burst_0.1_z_0.02_chab.model'):
