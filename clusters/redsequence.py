@@ -42,6 +42,7 @@ from itertools import count, izip
 from matplotlib import ticker
 from scipy import integrate, optimize, stats
 from scipy.special import erf
+from time import sleep
 
 from matplotlib import rcParams
 for tick in ('xtick', 'ytick'):
@@ -192,6 +193,7 @@ def lambda_richness(z, R, mag, color, color_err, rs_zeropoint, rs_slope,
                (Cfilter, Lfilter, Rfilter, px)
     return richness, richness_err
 
+
 def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
          sigma=False, rs=False, bcg=False, output='', comments='',
          fix_scatter=False, rsplot=True, mag_label='magnitude',
@@ -274,30 +276,31 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
 
     # CMD
     cmr = pylab.axes([0.12, 0.12, 0.65, 0.84])
-    cmr.set_xlabel('{0}-band magnitude'.format(mag_label))
-    cmr.set_ylabel('{0} color'.format(color_label))
+    #cmr.set_xlabel('{0}-band magnitude'.format(mag_label))
+    #cmr.set_ylabel('{0} color'.format(color_label))
+    cmr.set_xlabel(mag_label)
+    cmr.set_ylabel(color_label)
     # plot bcg if given in the proper format
     if bcg is not False:
         try:
             if len(bcg) == 2:
-                cmr.plot(bcg[0], bcg[1], 'o', mec='k',
-                         mfc='none', mew=2, ms=9)
+                cmr.plot(bcg[0], bcg[1], 'ko', mfc='none', mew=2, ms=9)
             else:
                 raise ValueError('parameter bcg must have length 2')
         except ValueError:
             msg = 'parameter bcg must be an array-like of length 2'
             raise ValueError(msg)
-    cmr.plot(mag, c, '.', color=blue)
+    cmr.plot(mag, color, '.', color=blue)
     if len(rsg) > 0:
-        cmr.errorbar(mag[rsg], c[rsg], yerr=e[rsg], fmt='.',
+        cmr.errorbar(mag[rsg], color[rsg], yerr=color_err[rsg], fmt='.',
                      color=red, ecolor=red, elinewidth=1, mec=red, capsize=1)
     if comments:
         cmr.annotate(comments, xy=(0.05, 0.95), xycoords='axes fraction',
                      va='top', ha='left')
     # Initial color selection
     if ylim is False:
-        bins = numpy.arange(min(c), max(c)+0.5, 0.5)
-        hist = numpy.histogram(c, bins)[0]
+        bins = numpy.arange(min(color), max(color)+0.5, 0.5)
+        hist = numpy.histogram(color, bins)[0]
         jo = numpy.argmax(hist)
         co = (bins[jo]+bins[jo+1]) / 2
         ylim = (co-1.5, co+1.5)
@@ -311,13 +314,13 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
         if len(rs) == 3:
           if rs[1] >= 0:
             cmr.annotate('$%s=%.3f+%.3f(%s-%.2f)$ $(\sigma=%.2f)$' \
-                         %(color_label, rs[0], rs[1], mag_label,
-                           pivot, scatter),
+                         %(color_label.replace('$', ''), rs[0], rs[1],
+                           mag_label.replace('$', ''), pivot, scatter),
                          xy=(0.05, 0.03), xycoords='axes fraction')
           else:
             cmr.annotate('$%s=%.3f-%.3f(%s-%.2f)$ $(\sigma=%.2f)$' \
-                         %(color_label, rs[0], -rs[1], mag_label,
-                           pivot, scatter),
+                         %(color_label.replace('$', ''), rs[0], -rs[1],
+                           mag_label.replace('$', ''), pivot, scatter),
                          xy=(0.05, 0.03), xycoords='axes fraction')
         if rsplot:
           t = scipy.linspace(xticks[0], max(mag), 100)
@@ -333,14 +336,14 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
     # Color histogram
     ch = pylab.axes([0.77, 0.12, 0.2, 0.84])
     bins = numpy.arange(ylim[0], ylim[1] + 0.05, 0.05)
-    n, bins, patches = ch.hist(c, bins=bins, histtype='stepfilled',
+    n, bins, patches = ch.hist(color, bins=bins, histtype='stepfilled',
                                orientation='horizontal', fc=yellow)
     # the area of the histogram
     A_hist = n.sum() * (bins[1] - bins[0])
     # assuming that alpha, mu and sigma all have the same format
     tbin = 0.01
     t = numpy.arange(ylim[0], ylim[1] + tbin, tbin)
-    if type(mu) in (list, tuple, numpy.ndarray):
+    if hasattr(mu, '__iter__'):
         # Red Sequence(s)
         if len(mu) == 1:
             f_rs = stats.norm.pdf(t, mu[0], sigma[0])
@@ -356,24 +359,25 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
                 A_rs[i-1] = f_rs[i-1].sum() * tbin
             # Blue Cloud
             f_bc = stats.norm.pdf(t, mu[0], sigma[0]) / \
-                   (numpy.sqrt(2*numpy.pi) * sigma[0]**2)
+                   ((2*numpy.pi)**0.5 * sigma[0]**2)
             A_bc = f_bc.sum() * tbin
             # normalized so that the ratio of "areas" is equal to the ratio of
             # alpha's:
-            g_bc = f_bc * (alpha[0] * A_rs) / (sum(alpha[1:]) * A_bc)
-            g_bc = numpy.squeeze(g_bc)
-            A_bc = g_bc.sum() * tbin
+            if A_bc > 0:
+                g_bc = f_bc * (alpha[0] * A_rs) / (sum(alpha[1:]) * A_bc)
+                g_bc = numpy.squeeze(g_bc)
+                A_bc = g_bc.sum() * tbin
             #pylab.plot(g_bc, t, '-', color=blue, lw=2)
             # the areas of the histograms and curves shall be the same
             ratio_areas = A_hist / (numpy.sum(A_rs, axis=0) + A_bc)
             for fi in f_rs:
                 pylab.plot(fi*ratio_areas, t, '-', color=red, lw=2)
-            #print g_bc.shape, ratio_areas.shape
-            pylab.plot(g_bc*ratio_areas, t, '-', color=blue, lw=2)
+            if A_bc > 0:
+                pylab.plot(g_bc*ratio_areas, t, '-', color=blue, lw=2)
 
     elif mu is not False: # will be a scalar
         f_rs = stats.norm.pdf(t, mu, sigma)
-        f_rs = f_rs / (numpy.sqrt(2 * numpy.pi) * sigma ** 2)
+        f_rs = f_rs / (numpy.sqrt(2*numpy.pi) * sigma ** 2)
         A_rs = f_rs.sum() * tbin
         pylab.plot(g_rs * (A_hist/A_rs), t, '-', color=red, lw=2)
 
@@ -388,7 +392,11 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
 
     # save?
     if output:
-        pylab.savefig(output, format=output[-3:])
+        try:
+            pylab.savefig(output, format=output[-3:])
+        except IOError:
+            sleep(3)
+            pylab.savefig(output, format=output[-3:])
         if verbose:
             print '  Saved to', output
     else:
@@ -396,19 +404,22 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
     pylab.close()
     return
 
+
 def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
                 fix_slope=False, fix_norm=False, fix_scatter=False,
                 width=2, npoints=100, converge=True, make_plot=True,
                 plot_output='', plot_comments='', mag_label='m',
                 color_label='c', plot_ylim=False, do_ecgmm=True,
-                alpha=[0.2,0.8], mu=None, sigma=[0.5,0.05],
+                flavour='BIC', bootstrap=100,
+                alpha=[0.2,0.8], mu=None, sigma=[1.0,0.05],
                 verbose=True, debug=False):
     """
-    Fit the red sequence. This is the main task; it is the only task in this
-    file that should be called by itself. All other functions are called upon
-    by this one. All objects in the catalog will be used; therefore, all
-    "cleaning"  (e.g., removing stars, choosing aperture) should be done
-    prior to calling this function.
+    Fit the red sequence. This is the main task; it is the only task in
+    this file that should be called by itself for most purposes. All
+    other functions are called upon by this one. All objects in the
+    catalog will be used; therefore, all "cleaning"  (e.g., removing
+    stars, choosing aperture) should be done prior to calling this
+    function.
 
     Parameters
     ----------
@@ -481,6 +492,11 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
                   from which to fit the red sequence. It is advised that this
                   option be set (to False) for clusters that cannot be fit a
                   red sequence automatically.
+      flavour   : {'AIC', 'BIC'}
+                  which information criterion to use in ECGMM
+      bootstrap : False or int
+                  whether to bootstrap the ECGMM and, if so, how many
+                  bootstrap samples to use
       alpha     : list of 2 floats
                   a guess on the fraction of objects in each sample
       mu        : list of 2 floats (optional)
@@ -540,18 +556,23 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
         mu = [co-1, co]
         if verbose:
             print '  mu = (%.3f,%.3f)' %(mu[0], mu[1])
+
     # run ECGMM?
     if do_ecgmm:
-        alpha, mu, sigma = _ecgmm(color, color_err, alpha, mu, sigma)
+        alpha, mu, sigma = _ecgmm(color, color_err, alpha, mu, sigma,
+                                  flavour, bootstrap)
         rsg = rsgalaxies(mag, color, color_err, mu[1], sigma[1],
                          indices=galaxies, width=3)
         # this happens when ECGMM is not able to fit two gaussians, probably
-        # because there are too few objects
+        # because there are too few objects?
         if len(rsg) <= 5:
             alpha, mu, sigma = _ecgmm(color, color_err,
                                       alpha=[1], mu=[1.2], sigma=[0.05])
             rsg = rsgalaxies(mag, color, color_err, mu, sigma,
                              indices=galaxies, width=2)
+        print 'mu =', mu
+        print 'alpha =', alpha
+        print 'sigma =', sigma
     # select objects for red sequence manually
     else:
         alpha = False
@@ -670,6 +691,7 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
 ## ------------------------ ##
 ## ------------------------ ##
 
+
 def filter_color(mag, color, color_err, zp, slope, sigma=0.05, magpivot=0):
     """
     Color filter, Sec 3.3
@@ -702,6 +724,7 @@ def filter_color(mag, color, color_err, zp, slope, sigma=0.05, magpivot=0):
     Cfilter = numpy.exp(-(color - cmr)**2 / (2*sigma_total**2)) / \
               ((2*numpy.pi)**0.5 * sigma_total)
     return Cfilter
+
 
 def filter_luminosity(mag, mstar, maglim, alpha=-1.2):
     """
@@ -738,6 +761,7 @@ def filter_luminosity(mag, mstar, maglim, alpha=-1.2):
     Lfilter = A * f(mag)
     Lfilter[mag > maglim] = 0
     return Lfilter
+
 
 def filter_radius(R, Rc, Rs, Rcore):
     """
@@ -795,6 +819,7 @@ def filter_radius(R, Rc, Rs, Rcore):
     A = 1 / integrate.trapz(Rfilter[j], R[j])
     return A * Rfilter
 
+
 def _lambda(lambda_value, z, R, mag, mlim, Cfilter, Lfilter, bx, mag_err=0,
             sigma_R=0.05, Ro=0.9, Rs=0.15, Rcore=0.1, beta=0.2, maxiter=1000):
     """
@@ -827,6 +852,7 @@ def _lambda(lambda_value, z, R, mag, mlim, Cfilter, Lfilter, bx, mag_err=0,
     px[j] = richness * ux[j] / (richness * ux[j] + bg[j])
     return richness, px, Rfilter, Rc
 
+
 ## ------------------------------- ##
 ## ------------------------------- ##
 ##                                 ##
@@ -835,6 +861,7 @@ def _lambda(lambda_value, z, R, mag, mlim, Cfilter, Lfilter, bx, mag_err=0,
 ## ------------------------------- ##
 ## ------------------------------- ##
 
+
 def _cmd_ylim(mu):
     cmax = numpy.ceil(mu)
     if numpy.ceil(mu) - mu < mu - numpy.floor(mu):
@@ -842,14 +869,42 @@ def _cmd_ylim(mu):
     cmin = cmax - 3
     return cmin, cmax
 
-def _ecgmm(c, e, alpha=[0.2,0.8], mu=[0.5,1.2], sigma=[0.5,0.05]):
+
+def _ecgmm(c, e, alpha=[0.2,0.8], mu=[0.5,1.2], sigma=[0.5,0.05],
+           flavour='BIC', bootstrap=False):
     """
     Error-Corrected Gaussian Mixture Model (ECGMM) by Hao et al. (2009)
 
     Everything is coded in their script so here just execute it.
+
+    Parameters
+    ----------
+        c       : float array
+                  galaxy colours
+        e       : float array
+                  galaxy colour uncertainties
+        alpha   : float array-like
+                  initial guess for the mixing of the Gaussian models
+        mu      : float array-like
+                  initial guess for the locations of the Gaussians
+        sigma   : float array-like
+                  initial guess for the widths of the Gaussians
+        flavour : {'AIC', 'BIC'}
+                  which information criterion to use
+        bootstrap : False or int
+                  whether to bootstrap the ECGMM and, if so, how many
+                  bootstrap samples to use
+
     """
-    bic = ecgmmPy.bic_ecgmm(c, e, alpha, mu, sigma)
+    if bootstrap is not False:
+        gmm = ecgmmPy.bsecgmm(c, e, alpha, mu, sigma, nboot=100,
+                              InfoCriteria=flavour)
+    elif flavour.upper() == 'AIC':
+        gmm = ecgmmPy.aic_ecgmm(c, e, alpha, mu, sigma)
+    elif flavour.upper() == 'BIC':
+        gmm = ecgmmPy.bic_ecgmm(c, e, alpha, mu, sigma)
     return alpha, mu, sigma
+
 
 def _fit_mle(x1, x2, x2err=[], fix_scatter=False, po=(1,0,0.1),
              verbose=False, full_output=False):
@@ -882,7 +937,6 @@ def _fit_mle(x1, x2, x2err=[], fix_scatter=False, po=(1,0,0.1),
                   Maximum Likelihood Estimate of the intrinsic scatter
 
     """
-    from scipy import optimize
     n = len(x1)
     if len(x2) != n:
         raise ValueError('x1 and x2 must have same length')
@@ -908,6 +962,7 @@ def _fit_mle(x1, x2, x2err=[], fix_scatter=False, po=(1,0,0.1),
         out = numpy.append(out, fix_scatter)
     return out
 
+
 def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
            fix_scatter=False, t_zp=None, t_sl=None, method='mle', plim=5,
            po=(1.5,-0.02,0.05), verbose=True):
@@ -925,9 +980,9 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
     n = len(rsg)
     if fix_norm is not False and fix_slope is not False:
         # (total) scatter -- taken from Pratt et al.
-        scatter = sum((c - (fix_norm + fix_slope * mag)) ** 2) / (n - 1)
+        scatter = (c - (fix_norm + fix_slope * mag)).sum()**2 / (n-1)
         # intrinsic scatter
-        scatter = scatter - sum((e / c) ** 2) / n
+        scatter = scatter - ((e / c) ** 2).sum() / n
         return fix_norm, fix_slope, numpy.sqrt(scatter)
     mag = mag[rsg]
     c = c[rsg]
@@ -937,12 +992,12 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
             cmr = lambda p, x: p[0] + p[1] * x
         elif fix_norm is not False:
             # to make life easier, no need to change the format of po
-            if type(po) in (tuple, list, numpy.ndarray):
+            if hasattr(po, '__iter__'):
                 po = po[-1]
             cmr = lambda p, x: fixed[1] + p * x
         elif fix_slope is not False:
             # to make life easier, no need to change the format of po
-            if type(po) in (tuple, list, numpy.ndarray):
+            if hasattr(po, '__iter__'):
                 po = po[0]
             cmr = lambda p, x: p + fixed[1] * x
         else:
@@ -975,15 +1030,15 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
             scatter = fix_scatter
         return rs[0], rs[1], scatter
     elif method == 'mle':
-        if type(po) in (float, int):
-            po = (po, -0.01, 0.05)
-        elif type(po) in (tuple, list, numpy.ndarray):
+        if hasattr(po, '__iter__'):
           if len(po) == 1:
               po = (po[0], -0.01, 0.05)
           elif len(po) == 2:
               po = (po[0], po[1], 0.05)
           else:
               po = (po[0], po[1], po[2])
+        else:
+            po = (po, -0.01, 0.05)
         mle = _fit_mle(mag, c, x2err=e, fix_scatter=fix_scatter, po=po)
         #if fix_scatter is False:
             #scatter = ((c - (mle[0] + mle[1]*mag))**2).sum() / (n-1)
@@ -1017,6 +1072,7 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
         sampler = emcee.EnsembleSampler
     return
 
+
 def _likelihood(mag, c, zp, sl, e=1):
     """
     e is the fractional error on the color
@@ -1026,10 +1082,12 @@ def _likelihood(mag, c, zp, sl, e=1):
     p = numpy.exp(-(c - line) ** 2 / (2 * (e*line) ** 2))
     return p / n
 
+
 def _lnprob(theta, mag, color, color_err=0.1, priors=None):
     #zp, sl = theta
     #if priors is not None:
     return
+
 
 def rsgalaxies(mag, color, color_err, mu, sigma, indices=None, width=2,
                sigma_int=0.05, fit='flat'):
@@ -1053,3 +1111,4 @@ def rsgalaxies(mag, color, color_err, mu, sigma, indices=None, width=2,
         cmr = mu + sigma*mag[indices]
         rsg = indices[numpy.absolute(color[indices] - cmr) < width*w]
     return rsg
+
