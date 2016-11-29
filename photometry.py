@@ -1,5 +1,6 @@
 import ezgal
 import numpy
+import os
 import urllib
 from astLib import astWCS
 try:
@@ -28,8 +29,8 @@ def absmag(mag, z, band1='megacam_r', band2='megacam_r',
     return mag + (mabs - mo)
 
 
-def extinction(ra, dec, use_ned=True, bands='UBVRIugrizJHKL', path_sfd='../',
-               verbose=False):
+def extinction(ra, dec, use_ned=True, bands='UBVRIugrizJHKL',
+               path_sfd='/disks/shear7/sifon/', verbose=False):
     """
     Get extinction given an RA and Dec using the Schlegel et al. (2011)
     maps.
@@ -69,16 +70,19 @@ def extinction(ra, dec, use_ned=True, bands='UBVRIugrizJHKL', path_sfd='../',
     else:
         galcoords = coordinates.eq2gal(ra, dec)
         if galcoords[1] >= 0:
-            fitsfile = path + 'schlegel/SFD_dust_4096_ngp.fits'
+            #fitsfile = path_sfd + 'schlegel/SFD_dust_4096_ngp.fits'
+            hemisphere = 'ngp'
         else:
-            fitsfile = path + 'schlegel/SFD_dust_4096_sgp.fits'
+            hemisphere = 'sgp'
+        fitsfile = os.path.join(path_sfd, 'schlegel',
+                                'SFD_dust_4096_{0}.fits'.format(hemisphere))
         wcs = astWCS.WCS(fitsfile)
         pix = wcs.wcs2pix(galcoords[0], galcoords[1])
         dustmap = fits.getdata(fitsfile)
         ebv = dustmap[int(pix[1]),int(pix[0])]
         # copied these from Henk's code -- not sure about the source
         Ag = 3.793 * ebv
-        Ar = 2.751 * ebv
+        Ar = 2.751 * ebv            
         return ebv, Ag, Ar
 
 
