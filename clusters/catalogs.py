@@ -10,6 +10,49 @@ from os.path import join as osjoin
 from astropy.io.fits import getdata
 from readfile import table
 
+
+def catalog_files(catalogs, as_dict=True, squeeze=False):
+    """
+    Return the file name of the corresponding catalogs
+
+    Parameters
+    ----------
+    catalogs  : str or list of strings
+                see description in `query()`
+    as_dict   : bool
+                whether to return a list or a dictionary
+    squeeze   : bool
+                whether to return a str instead of a list if only one
+                catalog is requested. `as_dict` takes precedence over
+                `squeeze`
+
+    Returns
+    -------
+    filenames : list or dict
+
+    """
+    path = '/Users/cristobal/Documents/catalogs'
+    filenames = {'maxbcg': 'maxbcg/maxBCG.fits',
+                 'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
+                 'hecs2013': 'hecs/2013/data.fits',
+                 'orca': 'orca/fullstripe82.fits',
+                 'psz1': osjoin('planck', 'PSZ-2013', 'PLCK-DR1-SZ',
+                                'COM_PCCS_SZ-union_R1.11.fits'),
+                 'psz2': osjoin('planck', 'PSZ-2015',
+                                'HFI_PCCS_SZ-union_R2.08.fits'),
+                 'redmapper': 'redmapper/redmapper_dr8_public' + \
+                              '_v5.10_catalog.fits',
+                 'whl': 'whl/whl2015.fits'}
+    filenames = {key: osjoin(path, filenames[key]) for key in filenames}
+    if isinstance(catalogs, basestring):
+        catalogs = catalogs.split(',')
+    if as_dict:
+        return {key: filenames[key] for key in catalogs}
+    if len(catalogs) == 1 and squeeze:
+        return filenames[catalogs[0]]
+    return [filenames[key] for key in catalogs]
+
+
 def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
           catalogs=None, return_single=True, squeeze=False,
           return_values=('name','ra','dec','z','index','dist','dz')):
@@ -38,7 +81,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                   if the matching is done in physical distance then pass
                   this module to make sure all cosmological parameters are
                   used consistently with the parent code!
-      catalogs  : str (optional)
+      catalogs  : str or list of str (optional)
                   list or comma-separated names of catalogs to be searched.
                   If not given, all available catalogs are searched. Allowed
                   values are:
@@ -118,20 +161,10 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         if name not in available:
             msg = 'WARNING: catalog {0} not available'.format(name)
             print msg
+    filenames = catalog_files(catalogs)
     labels = {'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
               'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1',
               'psz2': 'PSZ2', 'redmapper': 'redMaPPer', 'whl': 'WHL'}
-    filenames = {'maxbcg': 'maxbcg/maxBCG.fits',
-                 'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
-                 'hecs2013': 'hecs/2013/data.fits',
-                 'orca': 'orca/fullstripe82.fits',
-                 'psz1': osjoin('planck', 'PSZ-2013', 'PLCK-DR1-SZ',
-                                'COM_PCCS_SZ-union_R1.11.fits'),
-                 'psz2': osjoin('planck', 'PSZ-2015',
-                                'HFI_PCCS_SZ-union_R2.08.fits'),
-                 'redmapper': 'redmapper/redmapper_dr8_public' + \
-                              '_v5.10_catalog.fits',
-                 'whl': 'whl/whl2015.fits'}
     columns = {'maxbcg': 'none,RAJ2000,DEJ2000,zph',
                'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
                'hecs2013': 'Name,RAJ2000,DEJ2000,z',
@@ -141,7 +174,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
                'whl': 'WHL,RAJ2000,DEJ2000,zph'}
     for cat in catalogs:
-        filenames[cat] = osjoin(path, filenames[cat])
+        #filenames[cat] = osjoin(path, filenames[cat])
         columns[cat] = columns[cat].split(',')
     matches = {}
     withmatch = {}
@@ -203,3 +236,47 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
     if len(catalogs) == 1 and squeeze:
         return matches[catalogs[0]], withmatch[catalogs[0]]
     return matches, withmatch
+
+
+def retrieve_objects(catalog, indices=None, cols=None, squeeze=False):
+    """
+    Retrieve data from a catalog using indices within it (which may
+    be obtained using `query()`)
+
+    Parameters
+    ----------
+    catalog   : str
+                name of the catalog
+    indices   : array of int (optional)
+                indices of the objects whose information is requested.
+                These indices may be obtained by running `query()`
+                using the positions of the objects first. If not given,
+                the full catalog will be returned.
+    cols      : str or list of str (optional)
+                list or comma-separated names of the columns wanted. If
+                not given, all columns are returned.
+    squeeze   : bool
+                whether to return a one-element list if only one column
+                is given
+
+    Returns
+    -------
+    data      : list of arrays
+                requested catalog entries
+
+    """
+    filename = catalog_files(catalog, as_dict=False, squeeze=True)
+    print 'filename =', filename
+    data = getdata(filename, ext=1)
+    if cols is None:
+        cols = data.names
+    elif isinstance(cols, basestring):
+        cols = cols.split(',')
+    if indices is None:
+        indices = numpy.ones(data[cols[0]].size, dtype=bool)
+    data = [data[col][indices] for col in cols]
+    if len(cols) == 1 and squeeze:
+        return data[0]
+    return data
+
+
