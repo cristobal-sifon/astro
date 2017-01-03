@@ -7,7 +7,7 @@ from astro import cosmology
 from itertools import count, izip
 from numpy import any as npany, arange, argmin, array, chararray, ones
 from os.path import join as osjoin
-from pyfits import getdata
+from astropy.io.fits import getdata
 from readfile import table
 
 def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,

@@ -1,6 +1,7 @@
 import numpy
 from astLib import astCoords
 from astLib import astWCS
+from astropy.io import fits
 from itertools import izip
 from numpy import arcsin, arctan, cos, sin
 
@@ -29,12 +30,14 @@ def torad(x):
   """
   return numpy.pi * x / 180
 
+
 def todeg(x):
   """
   Input: coordinate in radians
   Returns: coordinate in degrees
   """
   return 180 * x / numpy.pi
+
 
 def eq2gal(ra, dec):
   """
@@ -71,6 +74,7 @@ def eq2gal(ra, dec):
   l = arctan(l) + l0
   return todeg(l) + 180, todeg(b)
 
+
 def extinction(ra, dec):
   """
   Returns the E(B-V) extinction for a given RA,Dec pair, using the dust maps of
@@ -83,9 +87,10 @@ def extinction(ra, dec):
     fitsfile = 'schlegel/SFD_dust_4096_sgp.fits'
   wcs = astWCS.WCS(fitsfile)
   pix = wcs.wcs2pix(galcoords[0], galcoords[1])
-  dustmap = pyfits.getdata(fitsfile)
+  dustmap = fits.getdata(fitsfile)
   ebv = dustmap[int(pix[1]),int(pix[0])]
   return ebv
+
 
 def zhelio(z, ra, dec):
     c = 299792.458
