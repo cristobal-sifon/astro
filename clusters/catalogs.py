@@ -53,6 +53,48 @@ def catalog_files(catalogs, as_dict=True, squeeze=False):
     return [filenames[key] for key in catalogs]
 
 
+def objects(catalog, indices=None, cols=None, squeeze=False):
+    """
+    Retrieve data from a catalog using indices within it (which may
+    be obtained using `query()`)
+
+    Parameters
+    ----------
+    catalog   : str
+                name of the catalog
+    indices   : array of int (optional)
+                indices of the objects whose information is requested.
+                These indices may be obtained by running `query()`
+                using the positions of the objects first. If not given,
+                the full catalog will be returned.
+    cols      : str or list of str (optional)
+                list or comma-separated names of the columns wanted. If
+                not given, all columns are returned.
+    squeeze   : bool
+                whether to return a one-element list if only one column
+                is given
+
+    Returns
+    -------
+    data      : list of arrays
+                requested catalog entries
+
+    """
+    filename = catalog_files(catalog, as_dict=False, squeeze=True)
+    print 'filename =', filename
+    data = getdata(filename, ext=1)
+    if cols is None:
+        cols = data.names
+    elif isinstance(cols, basestring):
+        cols = cols.split(',')
+    if indices is None:
+        indices = numpy.ones(data[cols[0]].size, dtype=bool)
+    data = [data[col][indices] for col in cols]
+    if len(cols) == 1 and squeeze:
+        return data[0]
+    return data
+
+
 def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
           catalogs=None, return_single=True, squeeze=False,
           return_values=('name','ra','dec','z','index','dist','dz')):
@@ -236,47 +278,4 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
     if len(catalogs) == 1 and squeeze:
         return matches[catalogs[0]], withmatch[catalogs[0]]
     return matches, withmatch
-
-
-def retrieve_objects(catalog, indices=None, cols=None, squeeze=False):
-    """
-    Retrieve data from a catalog using indices within it (which may
-    be obtained using `query()`)
-
-    Parameters
-    ----------
-    catalog   : str
-                name of the catalog
-    indices   : array of int (optional)
-                indices of the objects whose information is requested.
-                These indices may be obtained by running `query()`
-                using the positions of the objects first. If not given,
-                the full catalog will be returned.
-    cols      : str or list of str (optional)
-                list or comma-separated names of the columns wanted. If
-                not given, all columns are returned.
-    squeeze   : bool
-                whether to return a one-element list if only one column
-                is given
-
-    Returns
-    -------
-    data      : list of arrays
-                requested catalog entries
-
-    """
-    filename = catalog_files(catalog, as_dict=False, squeeze=True)
-    print 'filename =', filename
-    data = getdata(filename, ext=1)
-    if cols is None:
-        cols = data.names
-    elif isinstance(cols, basestring):
-        cols = cols.split(',')
-    if indices is None:
-        indices = numpy.ones(data[cols[0]].size, dtype=bool)
-    data = [data[col][indices] for col in cols]
-    if len(cols) == 1 and squeeze:
-        return data[0]
-    return data
-
 
