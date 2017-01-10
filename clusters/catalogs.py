@@ -1,17 +1,45 @@
 """
-Query cluster catalogs
+
+Query locally-stored cluster catalogs
 
 """
+import os
+import urllib
 from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
 from astro import cosmology
 from itertools import count, izip
 from numpy import any as npany, arange, argmin, array, chararray, \
                   iterable, ones
-from os.path import dirname, join as osjoin
 from astropy.io.fits import getdata
 
+# all catalogs are here
+# this can be modified by the user if wanted (though not
+# recommended).
+path = os.path.join(os.path.dirname(__file__), 'cluster_catalogs')
 
-def filename(catalogs, as_dict=True, squeeze=False):
+
+def download(fname):
+    """
+    Download a catalog from the web
+
+    """
+    # online location
+    www = r'http://www.astro.princeton.edu/~sifon/cluster_catalogs/'
+    print 'www =', www
+    online = os.path.join(www, fname)
+    #online = www + fname
+    # local path
+    path_local = os.path.join(path, os.path.dirname(fname))
+    if not os.path.isdir(path_local):
+        os.makedirs(path_local)
+    local = os.path.join(path, fname)
+    print 'online =', online
+    print 'local =', local
+    urllib.urlretrieve(online, local)
+    return
+    
+
+def filename(catalogs, as_dict=True, squeeze=False, relative=False):
     """
     Return the file name of the corresponding catalogs
 
@@ -25,25 +53,29 @@ def filename(catalogs, as_dict=True, squeeze=False):
                 whether to return a str instead of a list if only one
                 catalog is requested. `as_dict` takes precedence over
                 `squeeze`
+    relative  : bool
+                whether to return the absolute or relative path. Mostly
+                used when downloading catalogs, otherwise it should in
+                general not be changed.
 
     Returns
     -------
     fnames : list or dict
 
     """
-    path = osjoin(dirname(__file__), 'cluster_catalogs')
     fnames = {'maxbcg': 'maxbcg/maxBCG.fits',
               'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
               'hecs2013': 'hecs/2013/data.fits',
               'orca': 'orca/fullstripe82.fits',
-              'psz1': osjoin('planck', 'PSZ-2013', 'PLCK-DR1-SZ',
-                             'COM_PCCS_SZ-union_R1.11.fits'),
-              'psz2': osjoin('planck', 'PSZ-2015',
-                             'HFI_PCCS_SZ-union_R2.08.fits'),
+              'psz1': os.path.join('planck', 'PSZ-2013', 'PLCK-DR1-SZ',
+                                   'COM_PCCS_SZ-union_R1.11.fits'),
+              'psz2': os.path.join('planck', 'PSZ-2015',
+                                   'HFI_PCCS_SZ-union_R2.08.fits'),
               'redmapper': 'redmapper/redmapper_dr8_public' + \
                            '_v5.10_catalog.fits',
               'whl': 'whl/whl2015.fits'}
-    fnames = {key: osjoin(path, fnames[key]) for key in fnames}
+    if not relative:
+        fnames = {key: os.path.join(path, fnames[key]) for key in fnames}
     if isinstance(catalogs, basestring):
         catalogs = catalogs.split(',')
     if as_dict:
@@ -99,7 +131,8 @@ def objects(catalog, indices=None, cols=None, squeeze=False):
 
 def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
           catalogs=None, return_single=True, squeeze=False,
-          return_values=('name','ra','dec','z','index','dist','dz')):
+          return_values=('name','ra','dec','z','index','dist','dz'),
+          error_if_missing=False):
     """
     Query different catalogs for clusters close to a given set of coordinates.
 
@@ -151,6 +184,10 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
       squeeze   : bool
                   whether to return a list instead of a dictionary if only
                   one catalog is provided
+      error_if_missing : bool
+                  if True, will raise an IOError if *any* of the
+                  requested catalogs are missing. Otherwise they will
+                  just be skipped.
 
     Returns
     -------
@@ -164,6 +201,11 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                   for each searched catalog, contains hte indices of the
                   provided clusters for which at least one match was found.
                   The same formatting as for "matches" applies.
+
+    Notes
+    -----
+      If none of the catalogs exists and the user chooses not to
+      download any of them, then an IOError will be raised.
 
     """
     available = ('maxbcg', 'gmbcg', 'hecs2013', 'orca', 'psz1', 'psz2',
@@ -206,6 +248,39 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
             msg = 'WARNING: catalog {0} not available'.format(name)
             print msg
     fnames = filename(catalogs)
+
+    # if any of the requested catalogs does not exist, download
+    bad = []
+    print 'catalogs =', catalogs
+    print 'fnames =', fnames
+    for i, cat in enumerate(catalogs):
+        if not os.path.isfile(fnames[cat]):
+            msg = 'WARNING: there does not seem to be a local copy'
+            msg = '{0} of the {1} catalog'.format(msg, cat)
+            msg = '{0}. You need a local copy to query the'.format(msg)
+            msg = '{0} catalog; would you like to download it?'.format(msg)
+            msg = '{0} [y/N] '.format(msg)
+            do_download = raw_input(msg)
+            if do_download[0].lower() == 'y':
+                print filename(cat, relative=True, as_dict=False)
+                download(filename(cat, relative=True, as_dict=False)[0])
+            elif error_if_missing:
+                raise IOError('catalog {0} does not exist'.format(cat))
+            else:
+                bad.append(i)
+    print 'bad =', bad
+    # if some haven't been found, remove
+    # these two loops need to be separate because otherwise removing
+    # items from `catalogs` will mess up the first instruction
+    for i in bad:
+        fnames.pop(catalogs[i])
+    for i in bad:
+        catalogs.pop(i)
+    print 'catalogs =', catalogs
+    if len(catalogs) == 0:
+        msg = 'No catalogs available for query'
+        raise IOError(msg)
+
     labels = {'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
               'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1',
               'psz2': 'PSZ2', 'redmapper': 'redMaPPer', 'whl': 'WHL'}
@@ -218,7 +293,6 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
                'whl': 'WHL,RAJ2000,DEJ2000,zph'}
     for cat in catalogs:
-        #fnames[cat] = osjoin(path, fnames[cat])
         columns[cat] = columns[cat].split(',')
     matches = {}
     withmatch = {}
