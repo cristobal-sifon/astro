@@ -8,7 +8,6 @@ from itertools import count, izip
 from numpy import any as npany, arange, argmin, array, chararray, ones
 from os.path import join as osjoin
 from astropy.io.fits import getdata
-from readfile import table
 
 
 def filename(catalogs, as_dict=True, squeeze=False):
