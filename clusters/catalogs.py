@@ -25,16 +25,12 @@ def download(fname):
     """
     # online location
     www = r'http://www.astro.princeton.edu/~sifon/cluster_catalogs/'
-    print 'www =', www
     online = os.path.join(www, fname)
-    #online = www + fname
     # local path
     path_local = os.path.join(path, os.path.dirname(fname))
     if not os.path.isdir(path_local):
         os.makedirs(path_local)
     local = os.path.join(path, fname)
-    print 'online =', online
-    print 'local =', local
     urllib.urlretrieve(online, local)
     return
     
@@ -220,7 +216,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
     if unit == 'Mpc' and npany(z <= 0):
         msg = "ERROR: in catalogs.query:"
         msg += " if unit=='Mpc' then z must be larger than 0"
-        print msg
+        print(msg)
         exit()
     if unit == 'Mpc':
         if cosmo is None:
@@ -246,13 +242,11 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
     for name in catalogs:
         if name not in available:
             msg = 'WARNING: catalog {0} not available'.format(name)
-            print msg
+            print(msg)
     fnames = filename(catalogs)
 
     # if any of the requested catalogs does not exist, download
     bad = []
-    print 'catalogs =', catalogs
-    print 'fnames =', fnames
     for i, cat in enumerate(catalogs):
         if not os.path.isfile(fnames[cat]):
             msg = 'WARNING: there does not seem to be a local copy'
@@ -262,13 +256,11 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
             msg = '{0} [y/N] '.format(msg)
             do_download = raw_input(msg)
             if do_download[0].lower() == 'y':
-                print filename(cat, relative=True, as_dict=False)
                 download(filename(cat, relative=True, as_dict=False)[0])
             elif error_if_missing:
                 raise IOError('catalog {0} does not exist'.format(cat))
             else:
                 bad.append(i)
-    print 'bad =', bad
     # if some haven't been found, remove
     # these two loops need to be separate because otherwise removing
     # items from `catalogs` will mess up the first instruction
@@ -276,7 +268,6 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         fnames.pop(catalogs[i])
     for i in bad:
         catalogs.pop(i)
-    print 'catalogs =', catalogs
     if len(catalogs) == 0:
         msg = 'No catalogs available for query'
         raise IOError(msg)
