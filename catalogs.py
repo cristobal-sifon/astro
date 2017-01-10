@@ -7,6 +7,8 @@ from astropy.io import fits
 """
 Catalog manipulation and lookup utilities
 
+NOT IMPLEMENTED
+
 """
 
 
@@ -69,4 +71,4 @@ def crossmatch(cat1, cat2, cols1=0, cols2=0, tolerance=0, relative=0):
     cat1, cat2 = cats
     cols1, cols2 = cols
     # now generate the conditions by looping through both catalogs
-    for 
+    #for 
