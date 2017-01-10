@@ -4,7 +4,8 @@ import uncertainties
 from astro import constants, cosmology, units
 
 # from the KiDS GGL pipeline
-from kids_ggl_pipeline.halomodel import nfw as nfw_func
+# should maybe include the NFW file in this package
+#from kids_ggl_pipeline.halomodel import nfw as nfw_func
 
 def Msph(r, z, dr=0., ref='200c', unit='Msun', r_unit='kpc'):
     """
