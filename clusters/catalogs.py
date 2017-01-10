@@ -5,8 +5,9 @@ Query cluster catalogs
 from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
 from astro import cosmology
 from itertools import count, izip
-from numpy import any as npany, arange, argmin, array, chararray, ones
-from os.path import join as osjoin
+from numpy import any as npany, arange, argmin, array, chararray, \
+                  iterable, ones
+from os.path import dirname, join as osjoin
 from astropy.io.fits import getdata
 
 
@@ -30,7 +31,7 @@ def filename(catalogs, as_dict=True, squeeze=False):
     fnames : list or dict
 
     """
-    path = '/Users/cristobal/Documents/catalogs'
+    path = osjoin(dirname(__file__), 'cluster_catalogs')
     fnames = {'maxbcg': 'maxbcg/maxBCG.fits',
               'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
               'hecs2013': 'hecs/2013/data.fits',
@@ -168,10 +169,10 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
     available = ('maxbcg', 'gmbcg', 'hecs2013', 'orca', 'psz1', 'psz2',
                  'redmapper', 'whl')
     # some formatting for convenience
-    if not hasattr(ra, '__iter__'):
-        ra = [ra]
-        dec = [dec]
-    if not hasattr(z, '__iter__'):
+    if not iterable(ra):
+        ra = array([ra])
+        dec = array([dec])
+    if not iterable(z):
         z = array([z])
     # in the case of matching by physical radius, demand z > 0
     if unit == 'Mpc' and npany(z <= 0):
