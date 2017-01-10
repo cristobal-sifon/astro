@@ -11,7 +11,7 @@ from astropy.io.fits import getdata
 from readfile import table
 
 
-def catalog_files(catalogs, as_dict=True, squeeze=False):
+def filename(catalogs, as_dict=True, squeeze=False):
     """
     Return the file name of the corresponding catalogs
 
@@ -28,29 +28,29 @@ def catalog_files(catalogs, as_dict=True, squeeze=False):
 
     Returns
     -------
-    filenames : list or dict
+    fnames : list or dict
 
     """
     path = '/Users/cristobal/Documents/catalogs'
-    filenames = {'maxbcg': 'maxbcg/maxBCG.fits',
-                 'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
-                 'hecs2013': 'hecs/2013/data.fits',
-                 'orca': 'orca/fullstripe82.fits',
-                 'psz1': osjoin('planck', 'PSZ-2013', 'PLCK-DR1-SZ',
-                                'COM_PCCS_SZ-union_R1.11.fits'),
-                 'psz2': osjoin('planck', 'PSZ-2015',
-                                'HFI_PCCS_SZ-union_R2.08.fits'),
-                 'redmapper': 'redmapper/redmapper_dr8_public' + \
-                              '_v5.10_catalog.fits',
-                 'whl': 'whl/whl2015.fits'}
-    filenames = {key: osjoin(path, filenames[key]) for key in filenames}
+    fnames = {'maxbcg': 'maxbcg/maxBCG.fits',
+              'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
+              'hecs2013': 'hecs/2013/data.fits',
+              'orca': 'orca/fullstripe82.fits',
+              'psz1': osjoin('planck', 'PSZ-2013', 'PLCK-DR1-SZ',
+                             'COM_PCCS_SZ-union_R1.11.fits'),
+              'psz2': osjoin('planck', 'PSZ-2015',
+                             'HFI_PCCS_SZ-union_R2.08.fits'),
+              'redmapper': 'redmapper/redmapper_dr8_public' + \
+                           '_v5.10_catalog.fits',
+              'whl': 'whl/whl2015.fits'}
+    fnames = {key: osjoin(path, fnames[key]) for key in fnames}
     if isinstance(catalogs, basestring):
         catalogs = catalogs.split(',')
     if as_dict:
-        return {key: filenames[key] for key in catalogs}
+        return {key: fnames[key] for key in catalogs}
     if len(catalogs) == 1 and squeeze:
-        return filenames[catalogs[0]]
-    return [filenames[key] for key in catalogs]
+        return fnames[catalogs[0]]
+    return [fnames[key] for key in catalogs]
 
 
 def objects(catalog, indices=None, cols=None, squeeze=False):
@@ -80,9 +80,11 @@ def objects(catalog, indices=None, cols=None, squeeze=False):
                 requested catalog entries
 
     """
-    filename = catalog_files(catalog, as_dict=False, squeeze=True)
-    print 'filename =', filename
-    data = getdata(filename, ext=1)
+    if not isinstance(catalog, basestring):
+        msg = 'argument catalog must be a string'
+        raise TypeError(msg)
+    fname = filename(catalog, as_dict=False, squeeze=True)
+    data = getdata(fname, ext=1)
     if cols is None:
         cols = data.names
     elif isinstance(cols, basestring):
@@ -203,7 +205,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         if name not in available:
             msg = 'WARNING: catalog {0} not available'.format(name)
             print msg
-    filenames = catalog_files(catalogs)
+    fnames = filename(catalogs)
     labels = {'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
               'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1',
               'psz2': 'PSZ2', 'redmapper': 'redMaPPer', 'whl': 'WHL'}
@@ -216,14 +218,14 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
                'whl': 'WHL,RAJ2000,DEJ2000,zph'}
     for cat in catalogs:
-        #filenames[cat] = osjoin(path, filenames[cat])
+        #fnames[cat] = osjoin(path, fnames[cat])
         columns[cat] = columns[cat].split(',')
     matches = {}
     withmatch = {}
     for cat in available:
         if cat not in catalogs:
             continue
-        data = getdata(filenames[cat], ext=1)
+        data = getdata(fnames[cat], ext=1)
         aux = {}
         for name in data.names:
             aux[name] = data[name]
