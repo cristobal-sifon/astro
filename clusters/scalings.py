@@ -12,7 +12,8 @@ calculated...
 """
 import numpy
 import uncertainties
-from uncertainties import ufloat, umath, unumpy, Variable
+from uncertainties import ufloat, umath, unumpy
+from uncertainties.core import Variable
 
 # local
 import arnaud_profile
