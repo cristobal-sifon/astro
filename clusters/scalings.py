@@ -126,6 +126,8 @@ def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
         c = a * m**b * (1+z) ** ufloat(*C[scaling][ref][i])
     if errors:
         return c
+    elif type(c) == Variable:
+        return c.nominal_value
     else:
         return unumpy.nominal_values(c)
 
