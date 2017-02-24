@@ -123,6 +123,8 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
         model, nwalkers, nsteps, nburn = hdr
     jfree = (prior_types == 'uniform') | (prior_types == 'loguniform') | \
             (prior_types == 'normal') | (prior_types == 'lognormal')
+    if not hasattr(jfree, '__iter__'):
+        jfree = numpy.array([jfree])
 
     tree = args.chainfile[:-5].split('/')
     root = tree[-1][:-5]
@@ -623,7 +625,7 @@ def plot_esd(args, chainfile, chain, keys, esds, esd_keys, best,
     """
     if bw:
         colors = ('k', '0.55', '0.8')
-    if args.udg and Nobsbins == 1:
+    if Nobsbins == 1:
         fig, axes = pylab.subplots(figsize=(6,4))
     else:
         fig, axes = pylab.subplots(figsize=(5*Nobsbins,5), ncols=Nobsbins)
@@ -1974,7 +1976,7 @@ def read_args():
         help='Size of burn-in sample')
     add('--corner', dest='corner', nargs='*', default='',
         help='Create additional corner plot(s) with provided parameters')
-    add('--literature', dest='literature', default='',
+    add('--literature', dest='literature', nargs='?', default='',
         help='Comma-separated list of which lit. results to show')
     add('--observable', dest='observable', default=None)
     add('--output-path', dest='output_path', default=None)

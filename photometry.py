@@ -1,6 +1,8 @@
 import ezgal
 import numpy
 import os
+import re
+import string
 import urllib
 from astLib import astWCS
 try:
@@ -32,8 +34,9 @@ def absmag(mag, z, band1='megacam_r', band2='megacam_r',
 def extinction(ra, dec, use_ned=True, bands='UBVRIugrizJHKL',
                path_sfd='/disks/shear7/sifon/', verbose=False):
     """
-    Get extinction given an RA and Dec using the Schlegel et al. (2011)
-    maps.
+    Get extinction given an RA and Dec using the Schlegel et al. (1998)
+    maps (if use_ned==False) or the Schlafly et al. (2011) maps (if
+    use_ned==True).
 
     Set use_ned to False to get the extinction for the Megacam bands in
     the format I have been using for CCCP. Otherwise NED will be
@@ -58,7 +61,7 @@ def extinction(ra, dec, use_ned=True, bands='UBVRIugrizJHKL',
         response = urllib.urlopen(cmd)
         text = response.read()
         # find extinction in each band
-        ext = scipy.zeros(len(bands))
+        ext = numpy.zeros(len(bands))
         for line in text.split('\n'):
             l = re.split('\s+', line)
             if l[0] in ('Landolt', 'SDSS', 'UKIRT'):
@@ -82,7 +85,8 @@ def extinction(ra, dec, use_ned=True, bands='UBVRIugrizJHKL',
         ebv = dustmap[int(pix[1]),int(pix[0])]
         # copied these from Henk's code -- not sure about the source
         Ag = 3.793 * ebv
-        Ar = 2.751 * ebv            
+        Ar = 2.751 * ebv
+        #Ar = ebv / 2.751
         return ebv, Ag, Ar
 
 
@@ -128,3 +132,37 @@ def mstar(z, band='megacam_r', zf=5.,
     mstar = sed.get_apparent_mags(zf, band, z)
     return mstar
 
+
+def sdss2megacam(sdss, bands_sdss, band_megacam='r'):
+    """
+    Taken from
+    http://www2.cadc-ccda.hia-iha.nrc-cnrc.gc.ca/en/megapipe/docs/filt.html
+
+    """
+    if not isinstance(bands_sdss, basestring):
+        bands_sdss = ''.join(bands_sdss)
+    if band_megacam == 'u':
+        if not bands_sdss == 'ug':
+            return
+        c = -0.241
+    elif band_megacam == 'g':
+        if not bands_sdss == 'gr':
+            return
+        c = -0.153
+    elif band_megacam == 'r':
+        if not bands_sdss == 'gr':
+            return
+        c = -0.024
+    elif band_megacam == 'i':
+        if not bands_sdss == 'ri':
+            return
+        c = -0.003
+    elif band_megacam == 'z':
+        if not bands_sdss == 'iz':
+            return
+        c = 0.074
+    if band_megacam in 'ug':
+        m = sdss[0]
+    else:
+        m = sdss[1]
+    return m + c * (sdss[0]-sdss[1])
