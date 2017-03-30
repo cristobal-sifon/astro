@@ -16,16 +16,20 @@ Larson et al. 2011, ApJS, 192, 16):
 """
 import scipy
 from scipy import integrate
-# local modules
-import constants
-import units
 #from astropy import constants
 #from astropy import units as u
+
+# local modules
+#import constants
+#import units
+from astro import constants, units
+
 
 h = 0.7
 Omega_L = 0.7
 Omega_M = 1 - Omega_L
 Omega_k = 0.
+
 
 def E(z):
     """
@@ -212,9 +216,10 @@ def density(z=0, ref='critical', unit='astro'):
     Returns the critical or average density at redshift z.
         *Units: Msun·Mpc⁻³ if unit=='astro' (default); else g·cm⁻³
     """
+    assert ref[0] in 'acm'
     if ref[0] == 'c':
         d = 3 * H(z, unit='s')**2 / (8*scipy.pi*constants.G)
-    if ref[0] in ('a', 'm'):
+    elif ref[0] in ('a', 'm'):
         d = 3 * H(0., unit='s')**2 * Omega_M * (1+z)**3 / \
             (8 * scipy.pi * constants.G)
     if unit == 'astro':
