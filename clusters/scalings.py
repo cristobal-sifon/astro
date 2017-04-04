@@ -15,11 +15,10 @@ calculated...
 
 import numpy
 import uncertainties
-from uncertainties import ufloat, umath, unumpy
-from uncertainties.core import Variable
+from uncertainties import ufloat, umath, unumpy, Variable
 
 # local
-from astro.clusters import arnaud_profile, profiles
+from astro.clusters import arnaud_profile
 from astro import cosmology
 
 
