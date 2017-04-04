@@ -113,7 +113,8 @@ def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
     try:
         a = ufloat(*A[scaling][ref][i])
         b = ufloat(*B[scaling][ref][i])
-        m = M / Mo[scaling] / cosmology.h
+        #m = M / Mo[scaling] / cosmology.h
+        m = M / (Mo[scaling]/cosmology.h)
     except KeyError:
         msg = 'ERROR: combination of scaling=%s, ref=%s is not' \
                 %(scaling, ref)
