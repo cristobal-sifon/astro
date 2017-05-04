@@ -10,14 +10,17 @@ When the observable is not given at the radius where the scaling relation was
 calculated...
 
 """
+
+
+
 import numpy
 import uncertainties
 from uncertainties import ufloat, umath, unumpy, Variable
 
 # local
-import arnaud_profile
-import profiles
+from astro.clusters import arnaud_profile
 from astro import cosmology
+
 
 def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
        errors=False):
@@ -107,17 +110,18 @@ def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
         msg = 'ERROR: redshift %.2f not implemented for scaling %s;' \
                 %(redshift, scaling)
         msg += 'see help page.'
-        print msg
+        print(msg)
         exit()
     try:
         a = ufloat(*A[scaling][ref][i])
         b = ufloat(*B[scaling][ref][i])
-        m = M / Mo[scaling] / cosmology.h
+        #m = M / Mo[scaling] / cosmology.h
+        m = M / (Mo[scaling]/cosmology.h)
     except KeyError:
         msg = 'ERROR: combination of scaling=%s, ref=%s is not' \
                 %(scaling, ref)
         msg += ' implemented; see help page.'
-        print msg
+        print(msg)
         exit()
     if scaling == 'dutton14':
         c = 10**a * m**b
@@ -125,6 +129,8 @@ def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
         c = a * m**b * (1+z) ** ufloat(*C[scaling][ref][i])
     if errors:
         return c
+    elif type(c) == Variable:
+        return c.nominal_value
     else:
         return unumpy.nominal_values(c)
 
@@ -187,6 +193,7 @@ def Mgas(mgas, z, dmgas=0, dz=0, radius='500c', scaling='okabe10'):
 
     m = 10 ** A * mgas ** B
     return m.nominal_value, m.std_dev()
+
 
 def sigma(s, z, ds=None, dz=None,
           radius='200c', scaling='evrard08', bias=(1,0.),
@@ -443,7 +450,7 @@ def Ysz(y, z, dy=0, dz=0, r_in='500c', r_out='500c', scaling='sifon13'):
         B = ufloat((0.48, 0.11))
         if r_in != '200c':
             f = arnaud_profile.Yratio(r_in, '200c', 'sph')
-            #print f
+            #print(f)
             y = f * y
         m = 10 ** A * (y / Ez ** (2./3.) / 5e-5) ** B
         if r_out != '200c':

@@ -90,6 +90,8 @@ def nfw(m, z, dm=0, ref_in='200c', ref_out='500c',
     r_in = conversions.rsph(m, z, ref=ref_in, unit='Mpc')
     if scaling in ('duffy08', 'dutton14'):
         c = c * scalings.cM(m, z, ref=ref_in, scaling=scaling)
+    if not hasattr(c, '__iter__'):
+        c = numpy.array([c])
     scale = r_in / c
     # mass and uncertainty (if defined)
     m_out = numpy.array([_mass(ci, mi, rs, err)
@@ -103,6 +105,10 @@ def nfw(m, z, dm=0, ref_in='200c', ref_out='500c',
 
     if full_output:
         return m_out, c
+    if m_out[0].size == 1:
+        if dm == 0:
+            return m_out[0]
+        return m_out[0][0], m_out[1][0]
     return m_out
 
 
