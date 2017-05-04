@@ -12,7 +12,7 @@ except ImportError:
 from scipy.interpolate import interp1d
 
 # local
-import coordinates
+from astro import coordinates
 
 
 def absmag(mag, z, band1='megacam_r', band2='megacam_r',
@@ -46,9 +46,9 @@ def extinction(ra, dec, use_ned=True, bands='UBVRIugrizJHKL',
     """
     if use_ned:
         if verbose:
-            msg = 'Retrieveng dust extinction at RA=%.6f, Dec=%.6f from NED' \
-                  %(ra, dec)
-            print msg
+            msg = 'Retrieveng dust extinction at RA={0:.6f}, Dec={1:.6f}' \
+                  ' from NED'.format(ra, dec)
+            print(msg)
         form = 'in_csys=Equatorial'
         form += '&in_equinox=J2000.0'
         form += '&obs_epoch=2000.0'

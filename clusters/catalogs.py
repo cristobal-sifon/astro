@@ -5,12 +5,18 @@ Query locally-stored cluster catalogs
 """
 import os
 import urllib
+import sys
 from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
 from astro import cosmology
-from itertools import count, izip
+from itertools import count
 from numpy import any as npany, arange, argmin, array, chararray, \
                   iterable, ones
 from astropy.io.fits import getdata
+
+if sys.version_info[0] == 2:
+    from itertools import izip
+else:
+    izip = zip
 
 # all catalogs are here
 # this can be modified by the user if wanted (though not
