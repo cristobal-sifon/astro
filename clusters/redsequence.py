@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 Red Sequence fitting procedure
 
@@ -31,35 +32,30 @@ References
   Rykoff, E. S., Koester, B. P., Rozo, E., et al., 2011, ApJ, 746, 178
 
 """
+from __future__ import absolute_import, division, print_function
 
-import ecgmmPy
+#import ecgmmPy
 import emcee
 import numpy
 import pylab
 import scipy
-from astro import cosmology
-from itertools import count, izip
+import sys
+from itertools import count
 from matplotlib import ticker
 from scipy import integrate, optimize, stats
 from scipy.special import erf
 from time import sleep
 
-from matplotlib import rcParams
-for tick in ('xtick', 'ytick'):
-    rcParams['{0}.major.size'.format(tick)] = 8
-    rcParams['{0}.minor.size'.format(tick)] = 4
-    rcParams['{0}.major.width'.format(tick)] = 2
-    rcParams['{0}.minor.width'.format(tick)] = 2
-    rcParams['{0}.labelsize'.format(tick)] = 20
-rcParams['axes.linewidth'] = 2
-rcParams['axes.labelsize'] = 22
-rcParams['font.size'] = 20
-rcParams['legend.fontsize'] = 18
-#rcParams['lines.linewidth'] = 2
-rcParams['mathtext.fontset'] = 'stix'
-rcParams['pdf.use14corefonts'] = True
-rcParams['text.usetex'] = True
-rcParams['text.latex.preamble']=[r'\usepackage{amsmath}']
+if sys.version_info[0] == 2:
+    from itertools import izip
+else:
+    izip = zip
+    xrange = range
+
+# my code
+from astro import cosmology
+import plottools
+plottools.update_rcParams()
 
 ## -------------------- ##
 ## -------------------- ##
@@ -398,7 +394,7 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
             sleep(3)
             pylab.savefig(output, format=output[-3:])
         if verbose:
-            print '  Saved to', output
+            print('  Saved to', output)
     else:
         pylab.show()
     pylab.close()
@@ -543,7 +539,7 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
         bcg = list(bcg)
         bcg[0] -= pivot
     if verbose:
-        print ''
+        print()
     # initialize errors if empty
     if color_err == []:
         color_err = 1e-5 * numpy.ones(len(mag))
@@ -555,7 +551,7 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
         co = e[numpy.argmax(h)]
         mu = [co-1, co]
         if verbose:
-            print '  mu = (%.3f,%.3f)' %(mu[0], mu[1])
+            print('  mu = ({0:.3f},{1:.3f})'.format(mu[0], mu[1]))
 
     # run ECGMM?
     if do_ecgmm:
@@ -570,9 +566,9 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
                                       alpha=[1], mu=[1.2], sigma=[0.05])
             rsg = rsgalaxies(mag, color, color_err, mu, sigma,
                              indices=galaxies, width=2)
-        print 'mu =', mu
-        print 'alpha =', alpha
-        print 'sigma =', sigma
+        print('mu =', mu)
+        print('alpha =', alpha)
+        print('sigma =', sigma)
     # select objects for red sequence manually
     else:
         alpha = False
@@ -628,21 +624,22 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
                                  fit='tilted')
                 nit += 1
             if verbose:
-                print '  %d iteration(s), final sample: %d galaxies' \
-                      %(nit, len(rsg))
+                print('  {0} iteration(s), final sample: {1} galaxies'.format(
+                            nit, len(rsg)))
         else:
             rsg = rsgalaxies(mag, color, color_err, rs[0], rs[1],
                              indices=rsg, fit='tilted', width=width)
             if verbose:
-                print '  Only one iteration set: %d galaxies' %len(rsg)
+                print('  Only one iteration set: {0} galaxies'.format(
+                        len(rsg)))
         # nice printing
         if debug:
             if rs[1] >=0:
-                print 'CMR : %s = %.3f + %.3f(%s - %.2f)' \
-                      %(color_label, rs[0], rs[1], mag_label, pivot)
+                print('CMR : {0} = {1:.3f} + {2:.3f}({3} - {4:.2f})'.format(
+                            color_label, rs[0], rs[1], mag_label, pivot))
             else:
-                print 'CMR : %s = %.3f - %.3f(%s - %.2f)' \
-                      %(color_label, rs[0], -rs[1], mag_label, pivot)
+                print('CMR : {0} = {1:.3f} - {2:.3f}({3} - {4:.2f})'.format(
+                            color_label, rs[0], -rs[1], mag_label, pivot))
         # bootstrap errors
         a = []
         b = []
@@ -679,7 +676,7 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
              color_label=color_label, ylim=plot_ylim,
              verbose=verbose)
     if verbose:
-        print ''
+        print()
     return rsg, a, b, s
 
 
@@ -845,10 +842,10 @@ def _lambda(lambda_value, z, R, mag, mlim, Cfilter, Lfilter, bx, mag_err=0,
         richness = optimize.newton(eq, lambda_value, maxiter=maxiter)
     except RuntimeError:
         # doing this means that the loop
-        print 'Hit RuntimeError with maxiter=%d' %maxiter
+        print('Hit RuntimeError with maxiter={0}'.format(maxiter))
         return lambda_value, px, Rfilter, Rc
-    #print 'z=%.2f Rc=%.2f area=%.4f No=%.1f N=%.1f' \
-          #%(z, Rc, area, lambda_value, richness)
+    #print('z={0:.2f} Rc={1:.2f} area={2:.4f} No={3:.1f} N={4:.1f}'.format(
+                #z, Rc, area, lambda_value, richness))
     px[j] = richness * ux[j] / (richness * ux[j] + bg[j])
     return richness, px, Rfilter, Rc
 
@@ -1046,7 +1043,7 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
         return mle
     elif method == 'bayesian':
         if verbose:
-            print '  Calculating Likelihoods...'
+            print('  Calculating Likelihoods...')
         #L = numpy.zeros((t_zp.size,t_sl.size))
         #for i in xrange(t_zp.size):
             #for j in xrange(t_sl.size):
@@ -1054,7 +1051,7 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
                                                  #t_sl[j], e/c))
         ## marginalized distributions:
         #if verbose:
-            #print '  Marginalizing...'
+            #print('  Marginalizing...')
         #zp = numpy.sum(L, axis=1)
         #zp = zp / zp.sum() # normalized
         #zp_peak = t_zp[numpy.argmax(zp)]
@@ -1064,10 +1061,10 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
         #sl_peak = t_sl[numpy.argmax(sl)]
         #sl_err = numpy.std(sl)
         #if verbose:
-            #print 'sl = %6.3f +/- %.3f' %(sl_peak, sl_err)
-            #print 'zp = %6.3f +/- %.3f' %(zp_peak, zp_err)
-            #print 'cov:'
-            #print numpy.cov(sl, zp)
+            #print('sl = {0:6.3f} +/- {1:.3f}'.format(sl_peak, sl_err))
+            #print('zp = {0:6.3f} +/- {1:.3f}'.format(zp_peak, zp_err))
+            #print('cov:')
+            #print(numpy.cov(sl, zp))
         #return L
         sampler = emcee.EnsembleSampler
     return

@@ -1,9 +1,14 @@
 import numpy
+import sys
 from astLib import astCoords
 from astLib import astWCS
 from astropy.io import fits
-from itertools import izip
 from numpy import arcsin, arctan, cos, sin
+
+if sys.version_info[0] == 2:
+    from itertools import izip
+else:
+    izip = zip
 
 """
 Various coordinates utilities
