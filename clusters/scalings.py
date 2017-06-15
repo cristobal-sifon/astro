@@ -15,11 +15,10 @@ calculated...
 
 import numpy
 import uncertainties
-from uncertainties import ufloat, umath, unumpy
-from uncertainties.core import Variable
+from uncertainties import ufloat, umath, unumpy, Variable
 
 # local
-from astro.clusters import arnaud_profile, profiles
+from astro.clusters import arnaud_profile
 from astro import cosmology
 
 
@@ -116,7 +115,8 @@ def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
     try:
         a = ufloat(*A[scaling][ref][i])
         b = ufloat(*B[scaling][ref][i])
-        m = M / Mo[scaling] / cosmology.h
+        #m = M / Mo[scaling] / cosmology.h
+        m = M / (Mo[scaling]/cosmology.h)
     except KeyError:
         msg = 'ERROR: combination of scaling=%s, ref=%s is not' \
                 %(scaling, ref)

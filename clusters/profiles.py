@@ -111,6 +111,10 @@ def nfw(m, z, dm=0, ref_in='200c', ref_out='500c',
 
     if full_output:
         return m_out, c
+    if m_out[0].size == 1:
+        if dm == 0:
+            return m_out[0]
+        return m_out[0][0], m_out[1][0]
     return m_out
 
 
