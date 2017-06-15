@@ -10,16 +10,19 @@ When the observable is not given at the radius where the scaling relation was
 calculated...
 
 """
-
-
-
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
 import numpy
 import uncertainties
-from uncertainties import ufloat, umath, unumpy, Variable
+from uncertainties import ufloat, umath, unumpy
+try:
+    from uncertainties import Variable
+except ImportError:
+    from uncertainties.core import Variable
 
 # local
-from astro.clusters import arnaud_profile
-from astro import cosmology
+from . import arnaud_profile
+from .. import cosmology
 
 
 def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
