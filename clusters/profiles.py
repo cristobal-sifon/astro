@@ -1,13 +1,19 @@
 # -*- coding: utf-8 -*-
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
 import numpy
 import readfile
 from astro import constants, cosmology, units
-from itertools import izip
+try:
+    from itertools import izip
+except ImportError:
+    izip = zip
 from scipy import integrate, interpolate
 
 # local
-import conversions
-import scalings
+#from astro.clusters import conversions, scalings
+from . import conversions, scalings
 
 
 def nfw(m, z, dm=0, ref_in='200c', ref_out='500c',
