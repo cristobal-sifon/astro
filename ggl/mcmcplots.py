@@ -237,12 +237,14 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
         literature = {'logmstar':
                             [('velander14', 'zu15', 'mandelbaum16',
                               'vanuitert16'),
+                             ('eagle', 'rodriguez13', 'li16'),
+                             ('velander14', 'zu15', 'mandelbaum16',
+                              'vanuitert16', 'eagle'),
                              ('leauthaud12', 'velander14', 'mandelbaum16',
                               'vanuitert16'),
                              ('leauthaud12', 'velander14', 'mandelbaum16',
                               'vanuitert16', 'rodriguez13'),
-                             ('eagle', 'rodriguez13'),
-                             ('eagle', 'rodriguez13', 'li16')],
+                             ('eagle', 'rodriguez13')],
                       'distBCG':
                             [('sifon15', 'vdBosch16'),
                              ('sifon15', 'vdBosch16', 'li16')]}
@@ -250,7 +252,8 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
             #literature['logmstar'] = [('sifon17', 
         if observable not in literature:
             literature[observable] = [[]]
-        def do_plot_massobs(mass_trunc, mass_rbg, ratio, xlog, ylog, bw):
+        def do_plot_massobs(
+                mass_trunc, mass_rbg, ratio, xlog, ylog, bw, mass_host='mcmc'):
             for j in literature[observable]:
                 if (observable == 'distBCG' and ratio) or \
                         (observable == 'logmstar' and not ratio):
@@ -261,8 +264,8 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
                     dolit = False
                 plot_massobs(args, chain, hdr, keys, Nobsbins, Nrbins,
                              colors=fitcolors, save_output=save_output,
-                             literature=lit, norm=True, bw=bw,
-                             xlog=True, ylog=True, ratio=ratio,
+                             literature=lit, norm=True, bw=bw, xlog=True,
+                             ylog=True, ratio=ratio, mass_host=mass_host,
                              burn=burn, output_path=args.output_path,
                              mass_trunc=mass_trunc, mass_rbg=mass_rbg)
             if observable != 'logmstar' and not ratio:
@@ -275,13 +278,15 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
 
         for bw in (False, True):
             for ratio in (False, True):
-                do_plot_massobs(False, False, ratio, True, True, bw)
                 if 'Msat_rbg1' in keys:
                     do_plot_massobs(False, True, ratio, True, True, bw)
+                do_plot_massobs(False, False, ratio, True, True, bw)
                 #if not (ratio or bw):
                     #return
             if 'tnfw' in model:
                 do_plot_massobs(True, False, ratio, True, True, bw)
+            if 'distBCG' in args.chainfile:
+                do_plot_massobs(False, True, ratio, True, True, bw, mass_host=6e14)
             # just do colors
             break
         #return
@@ -578,7 +583,7 @@ def plot_esd_verbose(args, hdr, esds, esd_keys, best, burn=10000,
         else:
             ax.set_yticklabels([])
             ax.get_xticklabels()[1].set_visible(False)
-        ax.set_xlabel(r'$R\,(h^{-1}{\rm Mpc})$')
+        ax.set_xlabel(r'$R\,({\rm Mpc})$')
         ax.set_ylim(-20, 150)
         # inset
         inset = pylab.axes([xo+(i+0.5)*axw, yo+0.40*axh, 0.47*axw, 0.45*axh],
@@ -723,7 +728,7 @@ def plot_esd(args, chainfile, chain, keys, esds, esd_keys, best,
         else:
             ax.set_yticklabels([])
             #ax.get_xticklabels()[0].set_visible(False)
-        ax.set_xlabel(r'$R\,(h^{-1}{\rm Mpc})$')
+        ax.set_xlabel(r'$R\,({\rm Mpc})$')
     fig.tight_layout(pad=0.4, w_pad=w_pad)
     if save_output:
         output = os.path.join(output_path, 'esd.{0}'.format(ext))
@@ -739,8 +744,8 @@ def plot_esd(args, chainfile, chain, keys, esds, esd_keys, best,
 
 def plot_massobs(
         args, data, hdr, keys, Nobsbins, Nrbins, colors='ry', burn=10000,
-        errorbars=(16,84), ratio=True, show_mstar=False, dx=0.02,
-        save_output=False, output_path='mcmcplots', norm=True,
+        errorbars=(16,84), ratio=True, mass_host='mcmc', show_mstar=False,
+        dx=0.02, save_output=False, output_path='mcmcplots', norm=True,
         radius_3d=False, mass_trunc=False, mass_rbg=False, literature='',
         xlog=True, ylog=True, bw=False, twopanels=False, out_fit=None):
     params, prior_types, val1, val2, val3, val4, \
@@ -754,7 +759,7 @@ def plot_massobs(
 
     output = massobs_output(
         observable, output_path, literature, mass_trunc, mass_rbg,
-        ratio, show_mstar, radius_3d, xlog, ylog, bw)
+        ratio, show_mstar, radius_3d, xlog, ylog, bw, mass_host=mass_host)
 
     if twopanels:
         fig, axes = pylab.subplots(figsize=(5,7), nrows=2)
@@ -772,11 +777,11 @@ def plot_massobs(
     Mstar = Mstar[0]
     good = (data[keys == 'chi2'][0] > 0)
     if 'Mhost1' in keys:
-        Mhost, (Mhost_lo, Mhost_hi) = get_errorbars(data, good, burn, keys,
-                                                    'Mhost', n=None)
+        Mhost, (Mhost_lo, Mhost_hi) = \
+            get_errorbars(data, good, burn, keys, 'Mhost', n=None)
     else:
-        Mhost, (Mhost_lo, Mhost_hi) = get_errorbars(data, good, burn, keys,
-                                                    'Mgroup', n=None)
+        Mhost, (Mhost_lo, Mhost_hi) = \
+            get_errorbars(data, good, burn, keys, 'Mgroup', n=None)
 
     if observable == 'distBCG':
         if 'rsat1' in keys and radius_3d:
@@ -800,7 +805,10 @@ def plot_massobs(
             obs_err = numpy.zeros(obs.size)
             xlabel = r'$R_{\rm sat}$'
         if norm:
-            r200 = conversions.rsph(Mhost, 0.1, ref='200a')
+            if isinstance(mass_host, float):
+                r200 = conversions.rsph(mass_host, 0.1, ref='200a')
+            else:
+                r200 = conversions.rsph(Mhost, 0.1, ref='200a')
             obs /= r200
             obs_lo /= r200
             obs_hi /= r200
@@ -820,34 +828,39 @@ def plot_massobs(
     if 'Msat1_rt' in keys or 'Msat_rt1' in keys and mass_trunc:
         msub_name = 'Msat_rt'
         if 'Msat1_rt' in keys:
-            Msat, (Msat_lo, Msat_hi) = get_errorbars(data, good, burn, keys,
-                                                     'Msat', Nobsbins,
-                                                     suffix='_rt')
+            Msat, (Msat_lo, Msat_hi) = get_errorbars(
+                data, good, burn, keys, 'Msat', Nobsbins, suffix='_rt')
         else:
-            Msat, (Msat_lo, Msat_hi) = get_errorbars(data, good, burn, keys,
-                                                     'Msat_rt', Nobsbins)
+            Msat, (Msat_lo, Msat_hi) = get_errorbars(
+                data, good, burn, keys, 'Msat_rt', Nobsbins)
         if 'rt1' in keys:
-            rt, (rt_lo, rt_hi) = get_errorbars(data, good, burn, keys,
-                                               'rt', Nobsbins)
+            rt, (rt_lo, rt_hi) = get_errorbars(
+                data, good, burn, keys, 'rt', Nobsbins)
         else:
-            rt, (rt_lo, rt_hi) = get_errorbars(data, good, burn, keys,
-                                               'logrt', Nobsbins)
+            rt, (rt_lo, rt_hi) = get_errorbars(
+                data, good, burn, keys, 'logrt', Nobsbins)
     elif 'Msat_rbg1' in keys and mass_rbg:
         msub_name = 'Msat_rbg'
-        Msat, (Msat_lo, Msat_hi) = get_errorbars(data, good, burn, keys,
-                                                 'Msat_rbg', Nobsbins)
+        Msat, (Msat_lo, Msat_hi) = get_errorbars(
+            data, good, burn, keys, 'Msat_rbg', Nobsbins)
 
     else:
         msub_name = 'Msat'
-        Msat, (Msat_lo, Msat_hi) = get_errorbars(data, good, burn,
-                                                 keys, 'Msat', Nobsbins)
+        Msat, (Msat_lo, Msat_hi) = get_errorbars(
+            data, good, burn, keys, 'Msat', Nobsbins)
+
+    print '**\nMsat = {0}\n**'.format(Msat)
+    print 'Mstar =', Mstar
+
     # the uncertainties in obs are the 68% range of the distribution,
     # not the unceratinty on the mean (which is surely negligible)
-    print '** Fitting (ratio=%s) **' %ratio
+    print '** Fitting (ratio={0}) **'.format(ratio)
     if ratio:
         #y1 = calc_ratios(Mstar, Msat, ylo=Msat_lo, yhi=Msat_hi)
         y1 = calc_ratios(Msat, Mstar, xlo=Msat_lo, xhi=Msat_hi)
         y2 = calc_ratios(Msat, Mhost, Msat_lo, Msat_hi, Mhost_lo, Mhost_hi)
+        print 'Msat / Mstar = {0}'.format(y1)
+        print 'Msat / Mhost = {0}'.format(y2)
         mo = 1
         y2lo = numpy.array([min(lo, (1-1e-10)*y)
                             for lo, y in izip(y2[1], y2[0])])
@@ -942,8 +955,7 @@ def plot_massobs(
         afit, bfit, sfit = numpy.zeros((3,2))
 
     if observable == 'logmstar' and literature:
-        #curves, curve_labels = plot_literature(
-        plot_literature(
+        curves, curve_labels = plot_literature(
             args, axes[0], obs, observable, mass=msub_name,
             literature=literature)
     elif observable == 'distBCG' and literature:
@@ -963,28 +975,62 @@ def plot_massobs(
                 ax.set_xlim(0.05, 1)
             if not ylog:
                 ax.yaxis.set_minor_locator(ticker.AutoMinorLocator(4))
-        plot_literature(
+        curves, curve_labels = plot_literature(
             args, axes[0], obs, observable, xnorm=xpivot, norm=norm, bw=bw,
             mass=msub_name, literature=literature)
 
-    # I think this was just for comparison
-    """
+    # Just for comparison
     #if observable == 'logmstar' and literature:
     if 'logmstar' in args.chainfile and literature:
-        logx = log10(x_to_fit[0][-1])
-        #print (logx - log10(x_to_fit[2]))
-        logy = afit[0] + bfit[0]*(logx - log10(x_to_fit[2]))
-        print 'logx =', logx
-        print 'logy =', logy
-        for curve, clabel in izip(curves, curve_labels):
-            print clabel
-            if curve.x[0] < logx < curve.x[-1]:
-                i = curve(logx)
-                print '    curve(logx) =', i
-                print '    logdiff =', logy - i
-                print '    ratio =', 10**(logy-i)
+        ratio_output = os.path.split(output)
+        ratio_output = os.path.join(
+            ratio_output[0], 'ratio_{0}'.format(ratio_output[1]))
+        rfig, rax = pylab.subplots(figsize=(6,3.5))
+        for i, curve, clabel in izip(count(), curves, curve_labels):
+            #print clabel
+            xmin = (curve.x[1] if curve.x[1] < 10 else curve.x[0])
+            xmax = curve.x[numpy.argmin(numpy.absolute(curve.x-11.3))]
+            x = linspace(xmin, xmax, 10)
+            # show the EAGLE prediction of msub/M200,h
+            if 'EAGLE' in clabel:
+                # in this case using the relation for centrals from EAGLE
+                xeag = array([10.45, 10.75, 11.05, 11.35, 11.55]) + (0.6777-0.7)
+                ycent = array([12.46, 12.92, 13.13, 13.39, 13.69]) + (0.6777-0.7)
+                ycent = interp1d(xeag, ycent)
+                xratio = (max(x.min(), xeag.min()), min(x.max(), xeag.max()))
+                x = linspace(xratio[0], xratio[1], 10)
+                print('xeag =', xeag)
+                print('xratio =', xratio)
+                print('x =', x)
+                y = ycent(x)
+                # subhalo masses
+                yref = curve(x)
+                ls = 'k--'
+                clabel = 'EAGLE'
+            else:
+                y = curve(x)
+                # log(SHSMR)
+                yref = afit[0] + bfit[0]*(x - log10(x_to_fit[2]))
+                ls = 'C{0}-'.format(i)
+            rax.plot(10**x, 10**(yref-y), ls, lw=3, label=clabel)
+        rax.axhline(1, ls='--', color='k', lw=1)
+        rax.legend(fontsize=14, loc='upper center', ncol=2)
+        rax.set_xlabel(r'$m_\star\,(\mathrm{M}_\odot)$')
+        rax.set_ylabel(r'$m_\mathrm{bg}/M_\mathrm{200,central}$')
+        rax.set_xscale('log')
+        ylog = False
+        if ylog:
+            rax.set_ylim(0.2, 2)
+            rax.set_yscale('log')
+            rax.yaxis.set_major_formatter(ticker.LogFormatter(labelOnlyBase=True))
+            #rax.yaxis.set_major_locator(ticker.FixedLocator((0.2,1,2)))
+            #rax.yaxis.set_major_formatter(ticker.FormatStrFormatter('$%s$'))
+        else:
+            rax.set_ylim(0, 1.6)
+            rax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
+            rax.yaxis.set_minor_locator(ticker.MultipleLocator(0.1))
+        plottools.savefig('{0}.pdf'.format(ratio_output), fig=rfig)
         print
-    """
 
     fig.tight_layout(pad=0.5, h_pad=0.1)
     if save_output:
@@ -1328,7 +1374,7 @@ def plot_satsignal(args, chain, keys, Ro, signal, signal_err,
            ufloat(re[0][0], re[0][1])
     print '    (3-1) =', diff,
     print '(%.2f sigma)' %(diff.nominal_value / diff.std_dev)
-    ax.set_xlabel(r'$R\,(h^{-1}{\rm Mpc})$')
+    ax.set_xlabel(r'$R\,({\rm Mpc})$')
     ax.set_ylabel(r'$\Delta\Sigma_{\rm sub}\,(h\,\mathrm{M_\odot pc^{-2}})$')
     #ax.set_ylabel(r'$\Delta\Sigma\,(h\,\mathrm{M_\odot pc^{-2}})$')
     ax.set_xlim(2e-2, 0.5)
@@ -1450,7 +1496,7 @@ def format_axes(ax, observable, y, yerr=None, xlabels=True):
 
 
 def massobs_output(observable, output_path, literature, mass_trunc, mass_rbg,
-                   ratio, show_mstar, radius_3d, xlog, ylog, bw):
+                   ratio, show_mstar, radius_3d, xlog, ylog, bw, mass_host='mcmc'):
     output = os.path.join(output_path, 'mass')
     if mass_trunc:
         output += '_trunc'
@@ -1462,6 +1508,8 @@ def massobs_output(observable, output_path, literature, mass_trunc, mass_rbg,
         output += '_mstar'
     if observable == 'distBCG' and radius_3d:
         output += '_r3d'
+    if mass_host != 'mcmc':
+        output += '_mhost{0:.0e}'.format(mass_host).replace('+','')
     if xlog:
         output += '_xlog'
     if ylog:
@@ -1552,7 +1600,7 @@ def plot_literature(
     if observable == 'distBCG':
         Mstar_kids = 10**array([10.45, 10.51, 10.66]) / 0.7**2
         Rsat_kids = array([0.12, 0.25, 0.43]) / 0.7
-        if 'vdBosch16' in literature:
+        if 'vdBosch16' in literature or 'pvdBosch16' in literature:
             if bw:
                 colors = ['0.5', '0.7']
             else:
@@ -1637,7 +1685,7 @@ def plot_literature(
             label = 'Leauthaud+12'
             line, = ax.plot(x, y, 'k', dashes=(6,4), lw=2, label=label)
             curves.append(interp1d(log10(x), log10(y)))
-            curve_labels.append('L+12')
+            curve_labels.append('Leauthaud+12')
             lines.append(line)
             labels.append(label)
         # Velander et al. (2014) - CFHTLenS -- note this is M200c!
@@ -1664,7 +1712,7 @@ def plot_literature(
                     ecolor=color, mec=color, mfc='none', mew=1.5,
                     elinewidth=1.5, capsize=2, zorder=20, label=linelabel)
                 curves.append(interp1d(log10(v14[1]), log10(v14[2])))
-                curve_labels.append('V+14 {0}'.format(label.capitalize()))
+                curve_labels.append('Velander+14 {0}'.format(label.capitalize()))
                 lines.append(line)
                 labels.append(linelabel)
                 # don't show blue galaxies
@@ -1685,6 +1733,8 @@ def plot_literature(
             label = 'Zu\&Mandelbaum15'
             lines.append(line)
             labels.append(label)
+            curves.append(interp1d(logx, logy))
+            curve_labels.append(label)
         # Mandelbaum et al. (2016, MNRAS, 457, 3200)
         if 'mandelbaum16' in literature:
             #c = (red, blue)
@@ -1706,7 +1756,7 @@ def plot_literature(
                     mec=color, mfc='none', mew=1.5, elinewidth=1.5, capsize=2,
                     zorder=20, label=linelabel)
                 curves.append(interp1d(log10(m15[0]), log10(m15[1])))
-                curve_labels.append('M+16 {0}'.format(label.capitalize()))
+                curve_labels.append('Mandelbaum+16 {0}'.format(label.capitalize()))
                 lines.append(line)
                 labels.append(linelabel)
                 # don't show blue galaxies
@@ -1726,7 +1776,7 @@ def plot_literature(
             label = 'vanUitert+16'
             line, = ax.plot([], [], '-', color=color, lw=7, label=linelabel)
             curves.append(interp1d(log10(x), log10(y)))
-            curve_labels.append('vU+16')
+            curve_labels.append('van Uitert+16')
             lines.append(line)
             labels.append(label)
         # Zu & Mandelbaum (2016, MNRAS, 457, 4360)
@@ -1740,7 +1790,8 @@ def plot_literature(
                 line, = ax.plot(cent[0]/h**2, cent[1]/h, '-', color=red,
                                 zorder=1, label=linelabel)
                 curves.append(interp1d(log10(cent[0]/h**2), log10(cent[1]/h)))
-                curve_labels.append('Z&M16 {0}'.format(label.capitalize()))
+                curve_labels.append(
+                    'Zu\&Mandelbaum16 {0}'.format(label.capitalize()))
                 lines.append(line)
                 labels.append(linelabel)
         if 'eagle' in literature:
@@ -1793,22 +1844,22 @@ def plot_literature(
                 dashes = (10, 1e-5)
             line, = ax.plot(rp[0], rp[1], color='C5', dashes=dashes, lw=3,
                             zorder=-4, label=label)
-            line, = ax.plot([], [], 'C5-', lw=7)
+            line, = ax.plot([], [], 'C5-', lw=3)
             #ax.fill_between(
                 #rp[0], rp[1]-rp[2], rp[1]+rp[3], color='C5', lw=0, zorder=-5)
             curves.append(interp1d(log10(rp[0]), log10(rp[1])))
-            curve_labels.append('RP+13')
+            curve_labels.append("Rodr\'iguez-Puebla+13")
             lines.append(line)
             labels.append(label)
         # Li et al. CS82
         if 'li16' in literature:
             x = array([10**10.2,10**11.4])
-            y, ylo = lnr.to_linear([10.2,11.4], [0.73,0.16])
-            yhi = lnr.to_linear([10.2,11.4], [0.66,0.16])[1]
+            y, ylo = lnr.to_linear([11.14,12.38], [0.73,0.16])
+            yhi = lnr.to_linear([11.14,12.38], [0.66,0.16])[1]
             line = ax.errorbar(
                 x/h, y/h, yerr=(ylo/h,yhi/h),
                 #xerr=((10**0.2,10**0.3),(10**0.4,10**0.6)),
-                fmt='C6s', mfc='none', ms=6, mew=1.5, lw=1.5, capsize=2)
+                fmt='C2^', mfc='none', ms=6, mew=1.5, lw=1.5, capsize=2)
             lines.append(line)
             labels.append('Li+16')
         # Niemiec et al. (not yet published)
@@ -1827,7 +1878,7 @@ def plot_literature(
                 s17[0], s17[1], yerr=(s17[2],s17[3]), fmt='ko', ms=7,
                 capsize=2, elinewidth=2, mew=2, label=label)
             curves.append(interp1d(log10(s17[0]), log10(s17[1])))
-            curve_labels.append('Sifon+17')
+            curve_labels.append("Sif\'on+17")
             lines.append(line)
             labels.append(label)
         # my UDG paper
@@ -1846,7 +1897,7 @@ def plot_literature(
 
         #lines, labels = ax.get_legend_handles_labels()
         # construct legend(s)
-        curve_labels_short = [c.split()[0] for c in curve_labels]
+        #curve_labels_short = [c.split()[0] for c in curve_labels]
         #centrals = ('L+12 (z=0.36)', 'L+12 (z=0.66)', 'L+12 (z=0.88)',
                     #'V+14 Red (z=0.32)', 'C+15',
                     #'M+16 Red (z=0.13)', 'M+16 Blue (z=0.11)',
@@ -2052,10 +2103,6 @@ def get_plotkeys(model, params):
     print '[in get_plotkeys] model =', model
     mass_names = ['Msat', 'Msat_rbg'] + \
                  ['Menclosed{0}'.format(i) for i in xrange(1, 4)]
-    if model in 'fullnfw':
-        plot_keys = [['fchost'], ['fchost'], ['']]
-        names = [['Msat', 'Mhost'], ['Msat_rbg', 'Mhost'], ['Msat_rbg']]
-        plot_names = ['corner', 'corner_rbg', 'corner_sat']
     # this is for single bin only
     if model in ('fullnfw_cfree', 'fullnfw_cfree_log', 'fullnfw_log'):
         plot_keys = [['Msat', 'Mhost'], ['Msat_rbg', 'Mhost'],
@@ -2070,6 +2117,11 @@ def get_plotkeys(model, params):
         plot_keys = [[''], ['fchost']]
         names = [['csat', 'Msat_rbg'], ['csat', 'Msat_rbg', 'Mhost']]
         plot_names = ['corner_sat', 'corner']
+    elif model == 'fullnfw_csat_cMhost':
+        plot_keys = [[''], ['achost', 'bchost'], ['achost', 'bchost']]
+        names = [['csat', 'Msat_rbg'], ['Mhost'],
+                 ['Mhost', 'csat', 'Msat_rbg']]
+        plot_names = ['corner_sat', 'corner_host', 'corner']
     elif model == 'fullnfw_cMsat':
         plot_keys = [['asat', 'bsat', 'fchost'], ['asat', 'bsat']]
         names = [['Msat', 'Mhost'], ['Msat']]
@@ -2091,13 +2143,17 @@ def get_plotkeys(model, params):
         #names = [['Msat_rbg'], ['Msat_rbg', ['Mhost'], ['Msat'], ['Msat', 'Mhost']
         #names = [[name]+[name,'Mhost'] for name in mass_names]
         #plot_keys = [['c_c200', 
-    elif model[:16] == 'fullnfw_moline17':
+    elif model[:17] == 'fullnfw_moline17c':
         plot_keys = [['c_c200', 'fchost'], ['c_c200']]
         if 'bc' in model:
             for i in xrange(len(plot_keys)):
                 plot_keys[i].append('b_c200')
         names = [['Msat_rbg', 'Mhost'], ['Msat_rbg']]
         plot_names = ['corner', 'corner_sat']
+    elif model[:7] == 'fullnfw':
+        plot_keys = [[''], [''], ['']]
+        names = [['Msat'], ['Msat_rbg'], ['Msat_rbg', 'Mhost']]
+        plot_names = ['corner_sat', 'corner_sat_rbg', 'corner']
     elif model[:5] == 'sshmr':
         plot_keys = [['logm0', 'exponent', 'fch']]
         names = [['Mh']]
