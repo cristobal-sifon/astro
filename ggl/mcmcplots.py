@@ -105,8 +105,11 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
     tree = args.chainfile[:-5].split('/')
     root = tree[-1][:-5]
     if args.output_path is None:
-        #if len(tree) > 2:
-        args.output_path = os.path.join('mcmcplots', *tree[1:])
+        #args.output_path = os.path.join('mcmcplots', *tree[1:])
+        # assuming that the output data are always located in a folder
+        # called `output*`
+        args.output_path = os.path.join(
+            tree[0].replace('output', 'mcmcplots'), *tree[1:])
         #args.output_path = os.path.join('mcmcplots', root)
     if not os.path.isdir(args.output_path):
         os.makedirs(args.output_path)
@@ -246,7 +249,8 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
                               'vanuitert16', 'rodriguez13'),
                              ('eagle', 'rodriguez13')],
                       'distBCG':
-                            [('sifon15', 'vdBosch16'),
+                            [('sifon15', 'vdBosch16', 'pvdBosch16', 'li16'),
+                             ('sifon15', 'vdBosch16'),
                              ('sifon15', 'vdBosch16', 'li16')]}
         #if args.udg:
             #literature['logmstar'] = [('sifon17', 
@@ -1610,27 +1614,46 @@ def plot_literature(
             vdb = readfile.table(filename)
             wang = readfile.table(
                 'literature/wang13_Minfall_nsub_unevolved.txt')
-            mstar = utils.read_avgs('logmstar', chainfile=args.chainfile)[0]
-            # do a linear extrapolation if necessary
-            # this assumes all x-arrays are sorted
-            print 'xvalues =', xvalues
-            if xvalues[0] < vdb[0][0]:
-                slope = (vdb[1][1]-vdb[1][0]) / (vdb[0][1]-vdb[0][0])
-                amp = vdb[1][0] - slope*vdb[0][0]
-                vdb[0] = numpy.append(xvalues[0], vdb[0])
-                vdb[1] = numpy.append(amp + slope*xvalues[0], vdb[1])
-            macc = numpy.zeros(mstar.size)
-            y = numpy.zeros(mstar.size)
-            for i, m in enumerate(mstar):
-                j = numpy.argmin(abs(wang[0]-m))
-                macc[i] = wang[1][j]
-                m_over_mstar = vdb[1] * macc[i] / m
-                ratio = interp1d(vdb[0], m_over_mstar)
-                y[i] = ratio(xvalues[i])
-            # the 20% is made up. See how it compares to e.g. spread in Mstar
-            # for the paper
-            ax.fill_between(xvalues, 0.8*y, 1.2*y, color=colors[0], lw=0,
-                            zorder=-10)
+            mstars = utils.read_avgs(
+                         'logmstar', chainfile=args.chainfile)[0]
+            if 'pvdBosch16' in literature:
+                mstars = [10**numpy.array([10.68, 10.72, 10.78]), mstars]
+                xval = [numpy.array([0.3, 0.6, 1.0]), xvalues]
+            else:
+                mstars = [mstars]
+                xval = [xvalues]
+            for im, xv, mstar in izip(count(), xval, mstars):
+                # do a linear extrapolation if necessary
+                # this assumes all x-arrays are sorted
+                print 'xvalues =', xv
+                if xv[0] < vdb[0][0]:
+                    slope = (vdb[1][1]-vdb[1][0]) / (vdb[0][1]-vdb[0][0])
+                    amp = vdb[1][0] - slope*vdb[0][0]
+                    vdb[0] = numpy.append(xv[0], vdb[0])
+                    vdb[1] = numpy.append(amp + slope*xv[0], vdb[1])
+                if xv[-1] > vdb[0][-1]:
+                    slope = (vdb[1][-1]-vdb[1][-2]) / (vdb[0][-1]-vdb[0][-2])
+                    amp = vdb[1][-1] - slope*vdb[0][-1]
+                    vdb[0] = numpy.append(vdb[0], xv[-1])
+                    vdb[1] = numpy.append(vdb[1], amp + slope*xv[-1])
+                macc = numpy.zeros(mstar.size)
+                y = numpy.zeros(mstar.size)
+                for i, m in enumerate(mstar):
+                    j = numpy.argmin(abs(wang[0]-m))
+                    macc[i] = wang[1][j]
+                    m_over_mstar = vdb[1] * macc[i] / m
+                    ratio = interp1d(vdb[0], m_over_mstar)
+                    y[i] = ratio(xv[i])
+                print('y =', y)
+                if im == 1:
+                    # the 20% is made up. See how it compares to e.g.
+                    # spread in Mstar for the paper
+                    ax.fill_between(xv, 0.8*y, 1.2*y, color=colors[0],
+                                    lw=0, zorder=-10)
+                else:
+                    ax.fill_between(
+                        xv, 0.8*y, 1.2*y, facecolor='none', lw=2, zorder=-9,
+                        edgecolor='C6', linestyle='--')#dashes=(8,6))
             ax.plot([], [], '-', color=colors[0], lw=8,
                     label='vdB+16 + W+13 prediction')
             readfile.save(
