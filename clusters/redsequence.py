@@ -307,24 +307,23 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
     xticks = xticklabels - pivot
     xticklabels = ['${0}$'.format(xtl) for xtl in xticklabels]
     if rs is not False:
-        if len(rs) == 3:
-          if rs[1] >= 0:
+        if rs[1] >= 0:
             cmr.annotate(
                 '%s = %.3f + %.3f (%s$-$%.2f) ($\sigma=%.2f$)' \
                     %(color_label.replace('$', ''), rs[0], rs[1],
                 mag_label.replace('$', ''), pivot, scatter),
-                xy=(0.05, 0.03), xycoords='axes fraction', fontsize=12)
-          else:
+                xy=(0.05, 0.03), xycoords='axes fraction', fontsize=13)
+        else:
             cmr.annotate(
                 '%s = %.3f$ - $%.3f (%s$-$%.2f) ($\sigma=%.2f$)' \
                     %(color_label.replace('$', ''), rs[0], -rs[1],
                 mag_label.replace('$', ''), pivot, scatter),
-                xy=(0.05, 0.03), xycoords='axes fraction', fontsize=12)
+                xy=(0.05, 0.03), xycoords='axes fraction', fontsize=13)
         if rsplot:
-          t = np.linspace(xticks[0], max(mag), 100)
-          cmr.plot(t, rs[0] + rs[1]*t, 'k-', lw=2, zorder=-5)
-          cmr.plot(t, rs[0] + rs[1]*t + scatter, 'k--', lw=2, zorder=-5)
-          cmr.plot(t, rs[0] + rs[1]*t - scatter, 'k--', lw=2, zorder=-5)
+            t = np.linspace(xticks[0], max(mag), 100)
+            cmr.plot(t, rs[0] + rs[1]*t, 'k-', lw=2, zorder=-5)
+            cmr.plot(t, rs[0] + rs[1]*t + scatter, 'k--', lw=2, zorder=-5)
+            cmr.plot(t, rs[0] + rs[1]*t - scatter, 'k--', lw=2, zorder=-5)
     #cmr.xaxis.set_major_formatter(ticker.FormatStrFormatter('$%s$'))
     cmr.set_xticks(xticks)
     cmr.set_xticklabels(xticklabels)
