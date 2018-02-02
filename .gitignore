@@ -6,4 +6,4 @@ dist
 *.egg-info
 
 # large datasets in here
-clusters/cluster_catalogs/
+astro/clusters/cluster_catalogs
