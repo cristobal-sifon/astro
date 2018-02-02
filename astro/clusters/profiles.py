@@ -22,6 +22,9 @@ def nfw(m, z, dm=0, ref_in='200c', ref_out='500c',
     Convert the mass of a cluster from one overdensity radius to another
     assuming an NFW profile.
 
+    Do not use the returned uncertainties as they are calculated
+    wrongly at present
+
     Parameters
     ----------
         m         : float

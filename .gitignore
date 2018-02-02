@@ -1,3 +1,9 @@
 *~
 *.pyc
-clusters/cluster_catalogs/
+__pycache__
+build
+dist
+*.egg-info
+
+# large datasets in here
+astro/clusters/cluster_catalogs
