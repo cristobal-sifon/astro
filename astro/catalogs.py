@@ -1,15 +1,22 @@
-import multiprocessing
-import numpy
-import os
-import readfile
-from astropy.io import fits
-
 """
 Catalog manipulation and lookup utilities
 
 NOT IMPLEMENTED
 
 """
+from __future__ import (absolute_import, division, print_function,
+                        unicode_literals)
+
+import numpy as np
+import os
+import sys
+from astropy.io import fits
+
+if sys.version_info[0] == 3:
+    xrange = range
+
+# download from https://github.com/cristobal-sifon/readfile
+import readfile
 
 
 def crossmatch(cat1, cat2, cols1=0, cols2=0, tolerance=0, relative=0):
@@ -18,7 +25,7 @@ def crossmatch(cat1, cat2, cols1=0, cols2=0, tolerance=0, relative=0):
 
     Parameters
     ----------
-        cat1,cat2 : numpy.ndarray or dict
+        cat1,cat2 : np.ndarray or dict
             Whatever values should be cross-matched in each catalog.
             They could be object names, coordinates, etc, and there may
             be more than one entry per catalog.
@@ -45,8 +52,8 @@ def crossmatch(cat1, cat2, cols1=0, cols2=0, tolerance=0, relative=0):
     cats = [cat1, cat2]
     cols = [cols1, cols2]
     # need to check the depth of cat1,cat2 and always make 2d
-    for i in xrange(2);
-        if len(numpy.array(cats[i]).shape) == 1:
+    for i in xrange(2):
+        if len(np.array(cats[i]).shape) == 1:
             cats[i] = [cats[i]]
     # check the format of col1,col2 depending on the format of cat1,cat2
     msg = ''
