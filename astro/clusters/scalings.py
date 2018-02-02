@@ -116,20 +116,22 @@ def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
         print(msg)
         exit()
     try:
-        a = ufloat(*A[scaling][ref][i])
-        b = ufloat(*B[scaling][ref][i])
+        a = ufloat(A[scaling][ref][i])
+        b = ufloat(B[scaling][ref][i])
         #m = M / Mo[scaling] / cosmology.h
         m = M / (Mo[scaling]/cosmology.h)
+    #except (AssertionError, KeyError):
     except KeyError:
-        msg = 'ERROR: combination of scaling=%s, ref=%s is not' \
-                %(scaling, ref)
+        #print scaling, ref, i
+        msg = 'ERROR: combination of scaling=%s (%s), ref=%s (%s) is not' \
+                %(scaling, type(scaling), ref, type(ref))
         msg += ' implemented; see help page.'
         print(msg)
         exit()
     if scaling == 'dutton14':
         c = 10**a * m**b
     elif scaling == 'duffy08':
-        c = a * m**b * (1+z) ** ufloat(*C[scaling][ref][i])
+        c = a * m**b * (1+z) ** ufloat(C[scaling][ref][i])
     if errors:
         return c
     elif type(c) == Variable:
