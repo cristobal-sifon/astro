@@ -4,7 +4,6 @@ import matplotlib
 #matplotlib.use('pdf')
 import argparse
 import glob
-import lnr
 import numpy
 import os
 import pylab
@@ -35,10 +34,11 @@ import utils
 #from utils import read_avgs
 
 # my code
-import plottools
 import readfile
 import stattools
 from astro.clusters import conversions, profiles
+from lnr import lnr
+from plottools import plotutils, statsplots
 
 from astro import cosmology
 cosmology.h = 1
@@ -48,7 +48,7 @@ h = cosmology.h
 Om = cosmology.Omega_M
 Ol = cosmology.Omega_L
 
-plottools.update_rcParams()
+plotutils.update_rcParams()
 
 #for key in rcParams:
     #if 'math' in key or 'tex' in key:
@@ -295,12 +295,17 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
             break
         #return
 
+    # loop over the first two elements in case I change the
+    # naming convention
     for i in xrange(2):
         model = args.chainfile.split('/')[-1].split('-')[i]
         plotkeys = get_plotkeys(model, keys)
         if plotkeys is not None:
             break
-    plot_keys, plot_names = plotkeys
+    try:
+        plot_keys, plot_names = plotkeys
+    except TypeError:
+        plot_names = None
     for pkeys, output in izip(plot_keys, plot_names):
         if keys[numpy.in1d(keys, pkeys)].size != len(pkeys):
             continue
@@ -1033,7 +1038,7 @@ def plot_massobs(
             rax.set_ylim(0, 1.6)
             rax.yaxis.set_major_locator(ticker.MultipleLocator(0.5))
             rax.yaxis.set_minor_locator(ticker.MultipleLocator(0.1))
-        plottools.savefig('{0}.pdf'.format(ratio_output), fig=rfig)
+        plotutils.savefig('{0}.pdf'.format(ratio_output), fig=rfig)
         print
 
     fig.tight_layout(pad=0.5, h_pad=0.1)
@@ -1150,6 +1155,11 @@ def plot_samples(args, data, keys, best, npts, plot_keys=[],
         print 'Saved to', trace_output
     else:
         pylab.show()
+
+    # if they haven't been defined, just skip corner plots
+    if plot_keys is None:
+        return
+
     # to use the results from above
     bgweight = numpy.arange(len(data[0]))
     data = numpy.array([x[burn:] for x in data])
@@ -1234,7 +1244,7 @@ def plot_samples(args, data, keys, best, npts, plot_keys=[],
     truth1d_properties = dict(color=bcolors[0], zorder=10, ls='-')
     truth2d_properties = dict(color=bcolors[0], zorder=10, ls='+')
     likelihood_properties = dict(color=red, dashes=(8,6))
-    corner = plottools.corner(data1, labels=labels, bins=25, bins1d=25,
+    corner = statsplots.corner(data1, labels=labels, bins=25, bins1d=25,
                               #clevels=(0.68,0.95,0.99),
                               #output=output,
                               #ticks=ticks,
@@ -1314,7 +1324,7 @@ def plot_samples(args, data, keys, best, npts, plot_keys=[],
     truths = [d[best] for d in data[j]]
     keys1 = [k.replace('_', '\_') for k in keys[j]]
     try:
-        plottools.corner(data[j], labels=keys1, bins=25, bins1d=50,
+        statsplots.corner(data[j], labels=keys1, bins=25, bins1d=50,
                          clevels=(0.68,0.95,0.99), #likelihood=lnlike,
                          truth_color=red, style1d='step',
                          truths=truths, background='filled', output=output,
@@ -1977,6 +1987,17 @@ def plot_literature(
                 #print err
             print
 
+        # stellar mass systematic illustrtaion
+        if len(lit['Centrals']) > 0:
+            xo = 3e11
+            yo = 2e11
+            ax.annotate(
+                r'$m_\star$ syst.$', xy=xo,yo),
+                ha='center', va='bottom', color='0.6', fontsize=12)
+            ax.errorbar(
+                [xo], [0.6*yo], xerr=[xo*(10**0.12-1)], fmt=',',
+                color='0.6', lw=2, capsize=3, mew=2)
+
     return curves, curve_labels
 
 
@@ -2045,7 +2066,7 @@ def get_axlabel(name):
               'fcsat': r'$f_{\rm c}^{\rm sub}$',
               'fchost': r'$f_{\rm c}^{\rm host}$',
               'Msat': r'$m_{200}$',
-              'Mhost': r'$M_{\rm cl}$',
+              'Mhost': r'$M_\mathrm{cl}$',
               'Msat_rbg': r'$m_{\rm bg}$',
               'Msat_rt': r'$m_{\rm t}$'}
     keys = labels.keys()
@@ -2194,6 +2215,9 @@ def get_plotkeys(model, params):
         plot_keys = [['fcsat', 'fchost'], ['fcsat']]
         names = [['Msat_rt', 'Mhost'], ['Msat_rt', 'rt']]
         plot_names = ['corner_masses', 'corner_sat']
+    #elif model[:20] == 'tnfw_moline17_cMhost':
+        #plotkeys = [[], ['achost', 'bchost']]
+        #names = [['Msat', 'Mhost'
     elif model[:11] == 'tnfw_theory':
         plot_keys = [['fchost', 'fcsat', 'Art'], ['fcsat', 'Art'], ['fcsat']]
         names = [['Msat_rt', 'Mhost'], ['Msat_rt'], ['Msat_rt', 'rt']]
