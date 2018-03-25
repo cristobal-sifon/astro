@@ -14,6 +14,8 @@ Larson et al. 2011, ApJS, 192, 16):
     Omega_k = 0.00
 
 """
+from __future__ import absolute_import, division, print_function
+
 import scipy
 from scipy import integrate
 #from astropy import constants
@@ -22,7 +24,7 @@ from scipy import integrate
 # local modules
 #import constants
 #import units
-from astro import constants, units
+from . import constants, units
 
 
 h = 0.7

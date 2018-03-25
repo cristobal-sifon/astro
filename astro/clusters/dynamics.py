@@ -1,9 +1,13 @@
+from __future__ import absolute_import, division, print_function
+
 import pylab
 import scipy
-from astro import cosmology
 from astLib import astCoords
 
+from .. import cosmology
+
 c = 299792.458
+
 
 def m200(z, x, y=[], zo=0, xycenter=None, xyunit='deg', zunit='redshift',
          membership='shifting gapper', correct_profile='mbm10',

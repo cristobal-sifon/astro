@@ -33,6 +33,8 @@ References
   Rykoff, E. S., Koester, B. P., Rozo, E., et al., 2011, ApJ, 746, 178
 
 """
+from __future__ import absolute_import, division, print_function
+
 
 import ecgmmPy
 import numpy

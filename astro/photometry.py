@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 import ezgal
 import numpy
 import os
@@ -12,7 +14,7 @@ except ImportError:
 from scipy.interpolate import interp1d
 
 # local
-from astro import coordinates
+from . import coordinates
 
 
 def absmag(mag, z, band1='megacam_r', band2='megacam_r',

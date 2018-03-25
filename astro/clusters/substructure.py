@@ -1,11 +1,15 @@
 #!/usr/bin/env python
+from __future__ import absolute_import, division, print_function
+
 import itertools
 import pylab
 import readfile
 import scipy
 from astLib import astCoords
-from astro import cosmology
 from scipy import ndimage
+
+from .. import cosmology
+
 
 def asymetry(x, y, lum=None, center=None, z=None, r200=1, dx=0.02, width=4,
               profile='gauss', rweight='wen13'):

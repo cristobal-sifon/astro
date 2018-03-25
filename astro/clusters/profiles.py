@@ -4,7 +4,6 @@ from __future__ import (absolute_import, division, print_function,
 
 import numpy
 import readfile
-from astro import constants, cosmology, units
 try:
     from itertools import izip
 except ImportError:
@@ -14,6 +13,7 @@ from scipy import integrate, interpolate
 # local
 #from astro.clusters import conversions, scalings
 from . import conversions, scalings
+from .. import constants, cosmology, units
 
 
 def nfw(m, z, dm=0, ref_in='200c', ref_out='500c',

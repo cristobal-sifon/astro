@@ -1,3 +1,5 @@
+from __future__ import absolute_import, division, print_function
+
 import imp
 import os
 from glob import glob
@@ -8,7 +10,7 @@ sys.path.append('/Users/cristobal/Documents/cccp/lensing/satellites')
 
 # local
 #from halo model import nfw, nfw_stack, satellites
-import nfw, models
+from . import nfw, models
 
 def read_config(config_file, version='0.5.7'):
     valid_types = ('normal', 'lognormal', 'uniform', 'exp',
@@ -46,7 +48,7 @@ def read_config(config_file, version='0.5.7'):
                 msg += ' parameter file (%s). Value %s is invalid.' \
                        %(paramfile, line[1])
                 msg = ' Valid types are %s' %valid_types
-                print msg
+                print(msg)
                 exit()
             params.append(line[1])
             prior_types.append(line[2])
@@ -79,7 +81,7 @@ def read_config(config_file, version='0.5.7'):
         elif line[0] == 'hm_params':
             if line[2] != 'fixed':
                 msg = 'ERROR: Arrays can only contain fixed values.'
-                print msg
+                print(msg)
                 exit()
             param_types.append(line[0])
             params.append(line[1])
@@ -131,7 +133,7 @@ def read_function(module, function):
 
     # Personal implementation - everything always in a file called models.py
     function = getattr(models, function)
-    print 'Successfully imported', function
+    print('Successfully imported', function)
     #pickle.dumps(function)
     #print 'Pickled!'
     return function

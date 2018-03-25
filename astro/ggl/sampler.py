@@ -3,6 +3,8 @@
 Satellite lensing EMCEE wrapper
 
 """
+from __future__ import absolute_import, division, print_function
+
 import emcee
 import numpy
 import os
@@ -16,7 +18,8 @@ from os.path import isfile
 from time import ctime
 import pickle
 
-import sampling_utils
+from . import sampling_utils
+
 
 def run_emcee(hm_options, sampling_options, args):
     # load halo model setup
@@ -30,13 +33,13 @@ def run_emcee(hm_options, sampling_options, args):
 
     #function = cloud.serialization.cloudpickle.dumps(model)
     #del model
-    #print function
+    #print(function)
 
     #pickle.dumps(function)
-    #print 'pickled'
+    #print('pickled')
 
     if args.demo:
-        print ' ** Running demo only **'
+        print(' ** Running demo only **')
     elif isfile(output):
         msg = 'Warning: output file %s exists. Overwrite? [y/N] ' %output
         answer = raw_input(msg)
@@ -45,7 +48,7 @@ def run_emcee(hm_options, sampling_options, args):
         if answer.lower() not in ('y', 'yes'):
             exit()
     if not args.demo:
-        print 'Started -', ctime()
+        print('Started -', ctime())
 
     #load data files
     Ndatafiles = len(datafile)
@@ -70,9 +73,9 @@ def run_emcee(hm_options, sampling_options, args):
     ndim = len(val1[(jfree)])
     if len(starting) != ndim:
         msg = 'ERROR: Not all starting points defined for free parameters.'
-        print msg
+        print(msg)
         exit()
-    print 'starting =', starting
+    print('starting =', starting)
 
     # identify the function. Raises an AttributeError if not found
     #function = model.model()
@@ -82,17 +85,17 @@ def run_emcee(hm_options, sampling_options, args):
 
     if not args.demo:
         hdrfile = '.'.join(output.split('.')[:-1]) + '.hdr'
-        print 'Printing header information to', hdrfile
+        print('Printing header information to', hdrfile)
         hdr = open(hdrfile, 'w')
-        print >>hdr, 'Started', ctime()
-        print >>hdr, 'datafile', ','.join(datafile)
-        print >>hdr, 'cols', ','.join([str(c) for c in datacols])
-        print >>hdr, 'covfile', covfile
-        print >>hdr, 'covcols', ','.join([str(c) for c in covcols])
+        print('Started', ctime(), file=hdr)
+        print('datafile', ','.join(datafile), file=hdr)
+        print('cols', ','.join([str(c) for c in datacols]), file=hdr)
+        print('covfile', covfile, file=hdr)
+        print('covcols', ','.join([str(c) for c in covcols]), file=hdr)
         if exclude_bins is not None:
-            print >>hdr, 'exclude_bins', ','.join([str(c)
-                                                   for c in exclude_bins])
-        print >>hdr, 'model %s' %function
+            print('exclude_bins', ','.join([str(c) for c in exclude_bins]),
+                  file=hdr)
+        print('model %s' %function, file=hdr)
         for p, pt, v1, v2, v3, v4 in izip(params, prior_types,
                                         val1, val2, val3, val4):
             try:
@@ -101,11 +104,11 @@ def run_emcee(hm_options, sampling_options, args):
             except TypeError:
                 line = '%s  %s  %s  %s  %s  %s' \
                     %(p, pt, str(v1), str(v2), str(v3), str(v4))
-            print >>hdr, line
-        print >>hdr, 'nwalkers  {0:5d}'.format(nwalkers)
-        print >>hdr, 'nsteps    {0:5d}'.format(nsteps)
-        print >>hdr, 'nburn     {0:5d}'.format(nburn)
-        print >>hdr, 'thin      {0:5d}'.format(thin)
+            print(line, file=hdr)
+        print('nwalkers  {0:5d}'.format(nwalkers), file=hdr)
+        print('nsteps    {0:5d}'.format(nsteps), file=hdr)
+        print('nburn     {0:5d}'.format(nburn), file=hdr)
+        print('thin      {0:5d}'.format(thin), file=hdr)
         hdr.close()
 
     # are we just running a demo?
@@ -142,7 +145,7 @@ def run_emcee(hm_options, sampling_options, args):
         dof = esd.size - starting.size - 1
         chi2 = array([dot(residuals[m], dot(icov[m][n], residuals[n]))
                       for m in rng_obsbins for n in rng_obsbins]).sum()
-        print ' ** chi2 = %.2f/%d **' %(chi2, dof)
+        print(' ** chi2 = %.2f/%d **' %(chi2, dof))
         fig, axes = pylab.subplots(figsize=(4*Ndatafiles,4), ncols=Ndatafiles)
         if Ndatafiles == 1:
             plot_demo(axes, R, esd, esd_err, model[0], model[1], model[2])
@@ -208,7 +211,7 @@ def run_emcee(hm_options, sampling_options, args):
     if nburn > 0:
         pos, prob, state, blobs = sampler.run_mcmc(po, nburn)
         sampler.reset()
-        print '{0} Burn-in steps finished ({1})'.format(nburn, ctime())
+        print('{0} Burn-in steps finished ({1})'.format(nburn, ctime()))
     else:
         pos = po
     # incrementally save output
@@ -227,42 +230,42 @@ def run_emcee(hm_options, sampling_options, args):
 
     hdr = open(hdrfile, 'a')
     try:
-        print 'acceptance_fraction =', sampler.acceptance_fraction
-        print >>hdr, 'acceptance_fraction =',
+        print('acceptance_fraction =', sampler.acceptance_fraction)
+        print('acceptance_fraction =', file=hdr, end=' ')
         for af in sampler.acceptance_fraction:
-            print >>hdr, af,
+            print(af, file=hdr, end=' ')
     except ImportError:
         pass
     try:
-        print 'acor =', sampler.acor
-        print >>hdr, '\nacor =',
+        print('acor =', sampler.acor)
+        print('\nacor =', file=hdr, end=' ')
         for ac in sampler.acor:
-            print >>hdr, ac,
+            print(ac, file=hdr, end=' ')
     except ImportError:
         pass
     try:
-        print 'acor_time =', sampler.get_autocorr_time()
-        print >>hdr, '\nacor_time =',
+        print('acor_time =', sampler.get_autocorr_time())
+        print('\nacor_time =', file=hdr, end=' ')
         for act in sampler.get_autocorr_time():
-            print >>hdr, act,
+            print(act, file=hdr, end=' ')
     except AttributeError:
         pass
-    print >>hdr, '\nFinished', ctime()
+    print('\nFinished', ctime(), file=hdr)
     hdr.close()
-    print 'Saved to', hdrfile
+    print('Saved to', hdrfile)
 
     cmd = 'mv {0} {1}'.format(output, output.replace('.fits', '.temp.fits'))
-    print cmd
+    print(cmd)
     os.system(cmd)
-    print 'Saving everything to {0}...'.format(output)
-    print i, nwalkers, nwritten
+    print('Saving everything to {0}...'.format(output))
+    print(i, nwalkers, nwritten)
     write_to_fits(output, chi2, sampler, nwalkers, thin,
                   params, jfree, metadata, meta_names, i+1,
                   nwritten, Nobsbins,
                   array, BinTableHDU, Column, ctime, enumerate,
                   isfile, izip, transpose, xrange)
     os.remove(output.replace('.fits', '.temp.fits'))
-    print 'Everything saved to {0}!'.format(output)
+    print('Everything saved to {0}!'.format(output))
     return
 
 def lnprob(theta, R, esd, icov, function, params, prior_types,
@@ -431,8 +434,9 @@ def write_to_fits(output, chi2, sampler, nwalkers, thin, params, jfree,
         nwritten = iternum * nwalkers
     fitstbl = BinTableHDU.from_columns(columns)
     fitstbl.writeto(output)
-    print 'Saved to {0} with {1} samples'.format(output, iternum*nwalkers),
+    print('Saved to {0} with {1} samples'.format(output, iternum*nwalkers),
+          end=' ')
     if thin > 1:
-        print '(printing every {0}th sample)'.format(thin),
-    print '- {0}'.format(ctime())
+        print('(printing every {0}th sample)'.format(thin), end=' ')
+    print('- {0}'.format(ctime()))
     return metadata, nwritten

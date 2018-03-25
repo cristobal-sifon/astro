@@ -56,7 +56,8 @@ Notes
     -Remember that the "sharp" profile is only defined up to R=r_t!
 
 """
-#import numpy
+from __future__ import absolute_import, division, print_function
+
 from itertools import izip
 from numpy import arctan, arctanh, arccos, array, cos, \
                   hypot, log, log10, logspace, \

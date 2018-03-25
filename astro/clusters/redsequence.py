@@ -52,9 +52,11 @@ else:
     xrange = range
 
 # my code
-from astro import cosmology
 from plottools import plotutils
 plotutils.update_rcParams()
+
+# local
+from .. import cosmology
 
 
 ## -------------------- ##

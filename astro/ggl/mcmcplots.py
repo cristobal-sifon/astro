@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import division, print_function
+
 # -*- coding: utf-8 -*-
 import matplotlib
 #matplotlib.use('pdf')
@@ -36,11 +38,11 @@ import utils
 # my code
 import readfile
 import stattools
-from astro.clusters import conversions, profiles
 from lnr import lnr
 from plottools import plotutils, statsplots
 
-from astro import cosmology
+from .. import cosmology
+from ..clusters import conversions, profiles
 cosmology.h = 1
 cosmology.Omega_M = 0.315
 cosmology.Omega_L = 0.685
@@ -52,7 +54,7 @@ plotutils.update_rcParams()
 
 #for key in rcParams:
     #if 'math' in key or 'tex' in key:
-        #print '{0:<40s}  {1}'.format(key, rcParams[key])
+        #print('{0:<40s}  {1}'.format(key, rcParams[key]))
 #exit()
 
 red = (1,0,0)
@@ -113,7 +115,7 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
         #args.output_path = os.path.join('mcmcplots', root)
     if not os.path.isdir(args.output_path):
         os.makedirs(args.output_path)
-    print 'Reading file', args.chainfile, '...'
+    print('Reading file', args.chainfile, '...')
     data = fits.getdata(args.chainfile)
     names = data.names
 
@@ -157,7 +159,7 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
                 #chain[i] = 10**chain[i]
     lnlike = data.field('lnlike')[good]
 
-    print len(lnlike), 'samples'
+    print(len(lnlike), 'samples')
     # doing delta_chi2
     if 'chi2_total' in keys:
         chi2_key = 'chi2_total'
@@ -166,13 +168,13 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
     j = list(keys).index(chi2_key)
     best = numpy.argmax(lnlike)
     bestn = numpy.argsort(lnlike)[-10:]
-    print 'min(chi2) = %.2f at step %d' %(chain[j][best], best)
-    print 'max(lnlike) = %.2f' %lnlike.max()
-    print 'Best %d steps:' %len(bestn), bestn
+    print('min(chi2) = %.2f at step %d' %(chain[j][best], best))
+    print('max(lnlike) = %.2f' %lnlike.max())
+    print('Best %d steps:' %len(bestn), bestn)
     burn = min(burn, int(0.9*len(chain[0])))
     best = numpy.argmax(lnlike[burn:])
     minchi2 = chain[j][burn+best]
-    print 'min(chi2_burned) = {0:.2f} at step {1}'.format(minchi2, burn+best)
+    print('min(chi2_burned) = {0:.2f} at step {1}'.format(minchi2, burn+best))
     pte = stats.chisqprob(minchi2, dof)
     if pte > 0.01:
         pte_fmt = '{:.2f}'
@@ -180,8 +182,8 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
         pte_fmt = '{:.3f}'
     else:
         pte_fmt = '{:.2e}'
-    print 'dof = {0} --> PTE = {1}'.format(dof, pte_fmt.format(pte))
-    print 'max(lnlike_burned) = %.2f' %((lnlike[burn:]).max())
+    print('dof = {0} --> PTE = {1}'.format(dof, pte_fmt.format(pte)))
+    print('max(lnlike_burned) = %.2f' %((lnlike[burn:]).max()))
     Nparams = len(keys)
 
     # trying...
@@ -189,9 +191,9 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
     #binwidth = edges[1] - edges[0]
     #centers = 0.5 * (edges[1:] + edges[:-1])
     #evidence = n.sum() * binwidth
-    #print 'Evidence =', evidence
+    #print('Evidence =', evidence)
 
-    print 'Plotting...'
+    print('Plotting...')
     show = not save_output
 
     chi2 = data.field(chi2_key)[good]
@@ -236,7 +238,7 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
             observable = read_observable(args.chainfile)[0]
         else:
             observable = args.observable
-        print 'observable =', observable
+        print('observable =', observable)
         literature = {'logmstar':
                             [('velander14', 'zu15', 'mandelbaum16',
                               'vanuitert16'),
@@ -309,7 +311,7 @@ def main(save_output=True, ext='pdf', cmap='inferno'):
     for pkeys, output in izip(plot_keys, plot_names):
         if keys[numpy.in1d(keys, pkeys)].size != len(pkeys):
             continue
-        print 'pkeys =', pkeys
+        print('pkeys =', pkeys)
         for bw, out in izip((True, False),
                             ('{0}_bw'.format(output), output)):
             plot_samples(args, chain, keys, (best,minchi2,dof,pte),
@@ -407,7 +409,7 @@ def chi2grid(hdr, Mgroup=None, fc_group=None, Msat=None, fc_sat=1,
         pylab.title(title)
         pylab.savefig(output, format=output[-3:])
         pylab.close()
-        print 'Saved to', output
+        print('Saved to', output)
     return chi2, extent, fc_sat[ijmin[1]], Msat[ijmin[0]]
 
 
@@ -498,7 +500,7 @@ def plot_covariance(chainfile, cov, Nobsbins, Nrbins, corr=False,
         #output = output.replace('.fits', '_{0}.{1}'.format(suffix, ext))
         pylab.savefig(output, format=ext)
         pylab.close()
-        print 'Saved to', output
+        print('Saved to', output)
     elif show:
         pylab.show()
     #fig = pylab.figure(figsize=(10,2.5))
@@ -523,7 +525,7 @@ def plot_covariance(chainfile, cov, Nobsbins, Nrbins, corr=False,
         output = output.replace('.{0}'.format(ext), '_cbar.{0}'.format(ext))
         pylab.savefig(output, format=ext)
         pylab.close()
-        print 'Saved to', output
+        print('Saved to', output)
     elif show:
         pylab.show()
     if log:
@@ -544,7 +546,7 @@ def plot_esd_verbose(args, hdr, esds, esd_keys, best, burn=10000,
     if (isinstance(datafiles, basestring) and len(esd_keys) == 1) or \
             n != len(esd_keys):
         msg = 'ERROR: number of data files does not match number of ESDs'
-        print msg
+        print(msg)
         return
     signal = [[] for i in xrange(n)]
     cross = [[] for i in xrange(n)]
@@ -565,7 +567,7 @@ def plot_esd_verbose(args, hdr, esds, esd_keys, best, burn=10000,
         median_signal = numpy.median(esd[burn:], axis=0)
         #chi2 = (((median_signal - s[used]) / serr[used])**2).sum()
         #chi2_total += chi2
-        #print 'KS:', stats.ks_2samp(median_signal, s[used])
+        #print('KS:', stats.ks_2samp(median_signal, s[used]))
         residuals.append(s[used] - median_signal)
         per_signal = [numpy.percentile(esd[burn:], p, axis=0)
                       for p in percentiles]
@@ -620,7 +622,7 @@ def plot_esd_verbose(args, hdr, esds, esd_keys, best, burn=10000,
         output = os.path.join(output_path, 'esd_verbose.{0}'.format(ext))
         pylab.savefig(output, format=ext)
         pylab.close()
-        print 'Saved to', output
+        print('Saved to', output)
     elif show:
         pylab.show()
     # plot normalized residuals
@@ -652,17 +654,17 @@ def plot_esd(args, chainfile, chain, keys, esds, esd_keys, best,
     if Nobsbins == 1:
         axes = [axes]
     path = os.path.split(chainfile)
-    print 'path =', path
+    print('path =', path)
     if args.observable is None:
         observable = read_observable(args.chainfile)
     else:
         observable = args.observable
-    print 'observable =', observable
+    print('observable =', observable)
     if observable is None:
         obsbins = None
     else:
         obsbins = numpy.array([float(o) for o in observable[1]])
-        print 'obsbins =', obsbins
+        print('obsbins =', obsbins)
         observable = observable[0]
     t = logspace(-2, 0.7, 100)
     model_percentiles = []
@@ -745,7 +747,7 @@ def plot_esd(args, chainfile, chain, keys, esds, esd_keys, best,
             output = output.replace('.{0}'.format(ext), '_bw.{0}'.format(ext))
         fig.savefig(output, format=ext)
         pylab.close()
-        print 'Saved to', output
+        print('Saved to', output)
     elif show:
         pylab.show()
     return bestfit, numpy.array(model_percentiles)
@@ -858,18 +860,18 @@ def plot_massobs(
         Msat, (Msat_lo, Msat_hi) = get_errorbars(
             data, good, burn, keys, 'Msat', Nobsbins)
 
-    print '**\nMsat = {0}\n**'.format(Msat)
-    print 'Mstar =', Mstar
+    print('**\nMsat = {0}\n**'.format(Msat))
+    print('Mstar =', Mstar)
 
     # the uncertainties in obs are the 68% range of the distribution,
     # not the unceratinty on the mean (which is surely negligible)
-    print '** Fitting (ratio={0}) **'.format(ratio)
+    print('** Fitting (ratio={0}) **'.format(ratio))
     if ratio:
         #y1 = calc_ratios(Mstar, Msat, ylo=Msat_lo, yhi=Msat_hi)
         y1 = calc_ratios(Msat, Mstar, xlo=Msat_lo, xhi=Msat_hi)
         y2 = calc_ratios(Msat, Mhost, Msat_lo, Msat_hi, Mhost_lo, Mhost_hi)
-        print 'Msat / Mstar = {0}'.format(y1)
-        print 'Msat / Mhost = {0}'.format(y2)
+        print('Msat / Mstar = {0}'.format(y1))
+        print('Msat / Mhost = {0}'.format(y2))
         mo = 1
         y2lo = numpy.array([min(lo, (1-1e-10)*y)
                             for lo, y in izip(y2[1], y2[0])])
@@ -953,10 +955,10 @@ def plot_massobs(
         #afit, bfit, sfit = [ufloat(i) if len(i) == 2 else ufloat(i, 0)
                             #for i in fit]
         afit, bfit, sfit = fit
-        print 'xpivot =', xpivot, log10(xpivot)
-        print 'afit =', afit
-        print 'bfit =', bfit
-        print 'sfit =', sfit
+        print('xpivot =', xpivot, log10(xpivot))
+        print('afit =', afit)
+        print('bfit =', bfit)
+        print('sfit =', sfit)
         #if out_fit is not None:
             #fitline = '{0:<10s}  
     else:
@@ -996,7 +998,7 @@ def plot_massobs(
             ratio_output[0], 'ratio_{0}'.format(ratio_output[1]))
         rfig, rax = pylab.subplots(figsize=(6,3.5))
         for i, curve, clabel in izip(count(), curves, curve_labels):
-            #print clabel
+            #print(clabel)
             xmin = (curve.x[1] if curve.x[1] < 10 else curve.x[0])
             xmax = curve.x[numpy.argmin(numpy.absolute(curve.x-11.3))]
             x = linspace(xmin, xmax, 10)
@@ -1047,7 +1049,7 @@ def plot_massobs(
             #fig.savefig(output+'.'+ext, format=ext)
         fig.savefig('{0}.pdf'.format(output))
         #pylab.close()
-        print 'Saved to', output
+        print('Saved to', output)
     else:
         output = ''
         fig.show()
@@ -1119,7 +1121,7 @@ def plot_samples(args, data, keys, best, npts, plot_keys=[],
         chi2_key = 'chi2'
 
     model = os.path.split(args.chainfile)[-1].split('-')[0]
-    print 'model =', model
+    print('model =', model)
     data, keys = numpy.transpose([(data[keys == key][0], key)
                                   for key in keys if 'esd' not in key])
     #data = numpy.array(data, dtype=float)
@@ -1152,7 +1154,7 @@ def plot_samples(args, data, keys, best, npts, plot_keys=[],
         trace_output = os.path.join(output_path, 'trace.png')
         pylab.savefig(trace_output)
         pylab.close()
-        print 'Saved to', trace_output
+        print('Saved to', trace_output)
     else:
         pylab.show()
 
@@ -1175,8 +1177,8 @@ def plot_samples(args, data, keys, best, npts, plot_keys=[],
     x.append(x[0] - numpy.percentile(chi2, 16))
     x.append(numpy.percentile(chi2, 84) - x[0])
 
-    print 'keys =', keys
-    print 'plot_keys =', plot_keys
+    print('keys =', keys)
+    print('plot_keys =', plot_keys)
     data1 = numpy.array([data[keys == key][0]
                          for key in plot_keys if key in keys])
     if data1.shape[0] == 1:
@@ -1185,9 +1187,9 @@ def plot_samples(args, data, keys, best, npts, plot_keys=[],
     line = ''
     logfile = args.chainfile.replace('.fits', '.out')
     log = open(logfile, 'w')
-    print >>log, '# param  best  median  e16  e84  p95  p99'
-    print >>log, '#\n# chi2 = {0:.2f}'.format(minchi2)
-    print >>log, '# dof = {0}\n# pte = {1:.3e}\n#'.format(dof, pte)
+    print('# param  best  median  e16  e84  p95  p99', file=log)
+    print('#\n# chi2 = {0:.2f}'.format(minchi2), file=log)
+    print('# dof = {0}\n# pte = {1:.3e}\n#'.format(dof, pte), file=log)
 
     truths = numpy.zeros(len(plot_keys))
     take_log = numpy.zeros(len(plot_keys), dtype=bool)
@@ -1208,15 +1210,15 @@ def plot_samples(args, data, keys, best, npts, plot_keys=[],
             vals = (m, m - numpy.percentile(d, 16),
                     numpy.percentile(d, 84) - m)
             x = m
-        print >>log, '%-10s  %11.3e' %(key, truths[i]),
-        print >>log, ' %11.3e  %10.3e  %10.3e' %vals,
-        print >>log, ' {0:11.3e}  {1:11.3e}'.format(p95, p99)
+        print('%-10s  %11.3e' %(key, truths[i]),
+              ' %11.3e  %10.3e  %10.3e' %vals,
+              ' {0:11.3e}  {1:11.3e}'.format(p95, p99), file=log)
         line += '$%.2f_{-%.2f}^{+%.2f}$' %vals
         if key == 'fc':
             line += '}'
         line += ' & '
     log.close()
-    print 'Saved to', logfile
+    print('Saved to', logfile)
 
     if len(plot_keys) > 25:
         return
@@ -1310,7 +1312,7 @@ def plot_samples(args, data, keys, best, npts, plot_keys=[],
         output = os.path.join(output_path, '{0}.pdf'.format(output))
         pylab.savefig(output, format=output[-3:])
         pylab.close()
-        print 'Saved to', output
+        print('Saved to', output)
 
     if not plot_all:
         return
@@ -1330,7 +1332,7 @@ def plot_samples(args, data, keys, best, npts, plot_keys=[],
                          truths=truths, background='filled', output=output,
                          top_labels=True, bcolor=bcolor, verbose=True)
         if save_output:
-            print 'Saved to', output
+            print('Saved to', output)
     except ValueError:
         return
     return
@@ -1382,12 +1384,12 @@ def plot_satsignal(args, chain, keys, Ro, signal, signal_err,
         ax.plot(R, sis, '-', color=color, zorder=-5)
     re = numpy.array(re)
     re_print = tuple(1e3 * numpy.reshape(re, -1))
-    print r'  rE = $%.2f\pm%.2f$ & $%.2f\pm%.2f$ & $%.2f\pm%.2f$ \\ kpc/h' \
-          %re_print
+    print(r'  rE = $%.2f\pm%.2f$ & $%.2f\pm%.2f$ & $%.2f\pm%.2f$ \\ kpc/h' \
+          %re_print)
     diff = ufloat(re[2][0], re[2][1]) - \
            ufloat(re[0][0], re[0][1])
-    print '    (3-1) =', diff,
-    print '(%.2f sigma)' %(diff.nominal_value / diff.std_dev)
+    print('    (3-1) =', diff,
+          '(%.2f sigma)' %(diff.nominal_value / diff.std_dev))
     ax.set_xlabel(r'$R\,({\rm Mpc})$')
     ax.set_ylabel(r'$\Delta\Sigma_{\rm sub}\,(h\,\mathrm{M_\odot pc^{-2}})$')
     #ax.set_ylabel(r'$\Delta\Sigma\,(h\,\mathrm{M_\odot pc^{-2}})$')
@@ -1404,13 +1406,13 @@ def plot_satsignal(args, chain, keys, Ro, signal, signal_err,
     output = args.chainfile.replace('outputs/', 'plots/')
     output = output.replace('.fits', '_satsignal.pdf')
     pylab.savefig(output, format=output[-3:])
-    print 'Saved to', output
+    print('Saved to', output)
     ax.set_yscale('log')
     ax.set_ylim(1e-2, 100)
     output = output.replace('.pdf', '_log.pdf')
     pylab.savefig(output, format=output[-3:])
     pylab.close()
-    print 'Saved to', output
+    print('Saved to', output)
     return
 
 
@@ -1435,8 +1437,8 @@ def calc_ratios(x, y, xlo=None, xhi=None, ylo=None, yhi=None):
                     for xi, xloi, yi, yhii in izip(x, xlo, y, yhi)]
         ratio_hi = [(ufloat((xi, xhii)) / ufloat((yi, yloi))).std_dev()
                     for xi, xhii, yi, yloi in izip(x, xhi, y, ylo)]
-    #print ratio_lo
-    #print ratio_hi
+    #print(ratio_lo)
+    #print(ratio_hi)
     #exit()
     return ratio, numpy.array(ratio_lo), numpy.array(ratio_hi)
 
@@ -1462,9 +1464,9 @@ def convert_groupmasses(chain, keys, hdr):
         chain[jm] = log10(m200a)
     ratio = m200a / m200c
     median = numpy.median(ratio)
-    print '<m200a/m200c> = %.3f -%.3f +%.3f' \
+    print('<m200a/m200c> = %.3f -%.3f +%.3f' \
           %(median, median-numpy.percentile(ratio, 16),
-            numpy.percentile(ratio, 84)-median)
+            numpy.percentile(ratio, 84)-median))
     rhoc = cosmology.density(z, ref='critical')
     rhoa = cosmology.density(z, ref='average')
     r200c = (m200c / (4*numpy.pi/3) / (200*rhoc)) ** (1./3.)
@@ -1473,7 +1475,7 @@ def convert_groupmasses(chain, keys, hdr):
     Aa = 10.14 / (m200a/(2e12/h))**0.089 / (1+z)**1.01
     fca = (r200a / r200c) * (Ac / Aa)
     chain[jfc] *= fca
-    print 'converted masses and concentrations in', (time()-to)/60, 'minutes'
+    print('converted masses and concentrations in', (time()-to)/60, 'minutes')
     return chain
 
 
@@ -1576,7 +1578,7 @@ def plot_fit(ax, x1, x2, kind='kelly', colors='ry', logify=True):
                        logify=logify, model='yx', full_output=True,
                        bootstrap=False)
         afit, bfit, covfit = fit
-        print 'cov12 =', covfit[1][0]
+        print('cov12 =', covfit[1][0])
         logx1, logx1err = lnr.to_log(x1/x1p, x1err/x1p)
         logx2, logx2err = lnr.to_log(x2, x2err)
         #sfit = ((x2 - model(x1/x1p, afit[0], bfit[0])) / x2err)**2
@@ -1635,7 +1637,7 @@ def plot_literature(
             for im, xv, mstar in izip(count(), xval, mstars):
                 # do a linear extrapolation if necessary
                 # this assumes all x-arrays are sorted
-                print 'xvalues =', xv
+                print('xvalues =', xv)
                 if xv[0] < vdb[0][0]:
                     slope = (vdb[1][1]-vdb[1][0]) / (vdb[0][1]-vdb[0][0])
                     amp = vdb[1][0] - slope*vdb[0][0]
@@ -1858,7 +1860,7 @@ def plot_literature(
                         if rp[1][i] > rp[1][i-1]])
             # to account for proper indexing
             imax += 1
-            print 'imax =', imax
+            print('imax =', imax)
             rp = [i[:imax] for i in rp]
             #label = 'RP+13 (z=0.15)'
             label = 'Rodriguez-Puebla+13'
@@ -1958,14 +1960,14 @@ def plot_literature(
                 samples.append('Satellites')
         else:
             samples = ['Satellites']
-        print 'samples =', samples
+        print('samples =', samples)
         loc_text = [(0.05, 0.92), (0.36,0.06+0.06*len(lit[samples[-1]]))]
-        print '**\nloc_text = {0}\n**'.format(loc_text)
+        print('**\nloc_text = {0}\n**'.format(loc_text))
         bbox = ((0.02,0.94), None)
         loc_legend = ('upper left', 'lower right')
         legends = []
         for i, sample in enumerate(samples):
-            print 'sample:', sample
+            print('sample:', sample)
             ax.annotate(
                 '{0}:'.format(sample), xy=loc_text[i], fontsize=16,
                  xycoords='axes fraction', ha='left', va='bottom')
@@ -1973,9 +1975,9 @@ def plot_literature(
                            numpoints=1, frameon=False)
             if bbox[i] is not None:
                 lkwargs['bbox_to_anchor'] = bbox[i]
-            print 'kwargs =', lkwargs
-            print 'lines =', lines[lit[sample]]
-            print 'labels =', labels[lit[sample]]
+            print('kwargs =', lkwargs)
+            print('lines =', lines[lit[sample]])
+            print('labels =', labels[lit[sample]])
             #try:
             if True:
                 legends.append(
@@ -1984,7 +1986,7 @@ def plot_literature(
                 if i > 0:
                     pylab.gca().add_artist(legends[i-1])
             #except IndexError as err:
-                #print err
+                #print(err)
             print
 
         # stellar mass systematic illustrtaion
@@ -2047,7 +2049,7 @@ def fit_sis(R, esd, esd_err, zl, zs=0.65, po=1.):
     re, var = optimize.curve_fit(model, R, gammat, po,
                                  sigma=gammat_err, absolute_sigma=True)
     re_err = numpy.sqrt(var[0][0])
-    #print 'rE =', re[0], '+/-', re_err
+    #print('rE =', re[0], '+/-', re_err)
     return re[0], re_err
 def sigma_c(zl, zs):
     from astropy import constants, units as u
@@ -2144,7 +2146,7 @@ def get_label(observable, lo, hi, fmt='%.2f', last=False):
 
 
 def get_plotkeys(model, params):
-    print '[in get_plotkeys] model =', model
+    print('[in get_plotkeys] model =', model)
     mass_names = ['Msat', 'Msat_rbg'] + \
                  ['Menclosed{0}'.format(i) for i in xrange(1, 4)]
     # this is for single bin only
@@ -2229,7 +2231,7 @@ def get_plotkeys(model, params):
     else:
         msg = 'ERROR in get_plotkeys:'
         msg += ' plot keys for model {0} not specified'.format(model)
-        print msg
+        print(msg)
         return
     # so that they always have two dimensions
     if isinstance(plot_keys[0], basestring):

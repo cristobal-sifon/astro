@@ -2,6 +2,8 @@
 Generic astronomical utilities
 
 """
+from __future__ import absolute_import, division, print_function
+
 #import anydbm
 import os
 import re
