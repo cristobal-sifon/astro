@@ -143,7 +143,7 @@ def fit(mag, color, color_err=[], pivot=0, bcg=False, method='wls',
     bcg[0] -= pivot
 
   if verbose:
-    print ''
+    print()
   if color_err == []:
     color_err = 1e-5 * scipy.ones(len(mag))
   galaxies = scipy.arange(len(mag), dtype=int)
@@ -177,7 +177,7 @@ def fit(mag, color, color_err=[], pivot=0, bcg=False, method='wls',
       return rsg, L
 
     if verbose:
-      print ''
+      print()
     return rsg, a, b, s
 
   # NOT COMPLETE
@@ -226,18 +226,18 @@ def wlsfit():
                     fix_slope=fix_slope, method='wls')
         nit += 1
       if verbose:
-        print '%d iteration(s), final sample: %d galaxies' %(nit, len(rsg))
+        print('%d iteration(s), final sample: %d galaxies' %(nit, len(rsg)))
     else:
       if verbose:
-        print 'Only one iteration set: %d galaxies' %len(rsg)
+        print('Only one iteration set: %d galaxies' %len(rsg))
     # nice printing
     if debug:
       if rs[1] >=0:
-        print 'CMR : %s = %.3f + %.3f(%s - %.2f)' \
-              %(color_label, rs[0], rs[1], mag_label, pivot)
+        print('CMR : %s = %.3f + %.3f(%s - %.2f)' \
+              %(color_label, rs[0], rs[1], mag_label, pivot))
       else:
-        print 'CMR : %s = %.3f - %.3f(%s - %.2f)' \
-              %(color_label, rs[0], -rs[1], mag_label, pivot)
+        print('CMR : %s = %.3f - %.3f(%s - %.2f)' \
+              %(color_label, rs[0], -rs[1], mag_label, pivot))
 
     a = scipy.zeros(npoints)
     b = scipy.zeros(npoints)
@@ -313,7 +313,7 @@ def bayesfit(mag, c, e, zero=None, slope=None, scatter=None,
 
   """
   if verbose:
-    print '  Calculating Likelihoods...'
+    print('  Calculating Likelihoods...')
   t_zp = scipy.linspace(zero_range[0], zero_range[1], 100)
   t_sl = scipy.linspace(slope_range[0], slope_range[1], 100)
   L = scipy.zeros((len(t_zp), len(t_sl)))
@@ -332,7 +332,7 @@ def bayesfit(mag, c, e, zero=None, slope=None, scatter=None,
 
   # marginalized distributions:
   if verbose:
-    print '  Marginalizing...'
+    print('  Marginalizing...')
   zp = scipy.sum(L, axis=1)
   zp = zp / scipy.sum(zp) # normalized
   zp_peak = t_zp[scipy.argmax(zp)]
@@ -345,9 +345,9 @@ def bayesfit(mag, c, e, zero=None, slope=None, scatter=None,
   B = (sl_peak, sl_err)
   cov = scipy.cov(sl, zp)
   if verbose:
-    print 'zp = %6.3f +/- %.3f' %A
-    print 'sl = %6.3f +/- %.3f' %B
-    print 'cov:' cov
+    print('zp = %6.3f +/- %.3f' %A)
+    print('sl = %6.3f +/- %.3f' %B)
+    print('cov:', cov)
 
   if full_output:
     return A, B, cov, L
@@ -423,7 +423,7 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
 
   elif method == 'bayesian':
     if verbose:
-      print '  Calculating Likelihoods...'
+      print('  Calculating Likelihoods...')
     L = scipy.zeros((len(t_zp), len(t_sl)))
     for i in range(len(t_zp)):
       for j in range(len(t_sl)):
@@ -432,7 +432,7 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
 
     # marginalized distributions:
     if verbose:
-      print '  Marginalizing...'
+      print('  Marginalizing...')
     zp = scipy.sum(L, axis=1)
     zp = zp / scipy.sum(zp) # normalized
     zp_peak = t_zp[scipy.argmax(zp)]
@@ -442,10 +442,10 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
     sl_peak = t_sl[scipy.argmax(sl)]
     sl_err = scipy.std(sl)
     if verbose:
-      print 'sl = %6.3f +/- %.3f' %(sl_peak, sl_err)
-      print 'zp = %6.3f +/- %.3f' %(zp_peak, zp_err)
-      print 'cov:'
-      print scipy.cov(sl, zp)
+      print('sl = %6.3f +/- %.3f' %(sl_peak, sl_err))
+      print('zp = %6.3f +/- %.3f' %(zp_peak, zp_err))
+      print('cov:')
+      print(scipy.cov(sl, zp))
 
     return L
   return
@@ -594,7 +594,7 @@ def RSplot(bcg, rsg, pivot, mag, c, e, alpha, mu, sigma, rs, output='',
   if output:
     pylab.savefig(output, format = output[-3:])
     if verbose:
-      print 'Saved to', output
+      print('Saved to', output)
   else:
     pylab.show()
   pylab.close()

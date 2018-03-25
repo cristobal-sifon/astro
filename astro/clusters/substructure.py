@@ -123,7 +123,7 @@ def smooth_map(x, y, lum=None, center=None, z=None, r200=1, dx=0.02, width=4,
   if profile != 'gauss':
     msg = 'WARNING: only a gaussian profile is implemented;'
     msg += ' falling back to it'
-    print msg
+    print(msg)
     profile = 'gaussian'
 
   x200 = r200 / dx

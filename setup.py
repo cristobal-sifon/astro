@@ -14,6 +14,6 @@ setup(
     author='Cristobal Sifon',
     author_email='sifon@astro.princeton.edu',
     url='https://github.com/cristobal-sifon/astro',
-    packages=['astro'],
+    packages=['astro', 'astro.clusters'],
     zip_safe=False
     )

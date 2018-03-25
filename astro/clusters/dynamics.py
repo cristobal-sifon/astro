@@ -20,7 +20,7 @@ def m200(z, x, y=[], zo=0, xycenter=None, xyunit='deg', zunit='redshift',
     """
     if zo == 0:
         zo = scipy.median(z)
-    if zunit = 'velocity':
+    if zunit == 'velocity':
         v = z
         zo /= c
     else:

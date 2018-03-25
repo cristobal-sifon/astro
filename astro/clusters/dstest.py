@@ -72,7 +72,7 @@ def Delta(data, z0=0, cluster='', Nnear=10, Nsim=1000,
         msg += '   (1) the name of the catalog file where the first 4'
         msg += ' columns are ID, RA, Dec, z; or'
         msg += '   (2) a tuple/list/array with ID, RA, Dec, z'
-        print msg
+        print(msg)
         return
     array = numpy.array
 
@@ -92,11 +92,11 @@ def Delta(data, z0=0, cluster='', Nnear=10, Nsim=1000,
         plot(plot_filename, delta, ra, dec, v, Nnear, cluster)
     if verbose:
         if cluster:
-            print '%s (%d members)' %(cluster, len(z))
-        print 'Using %d neighbors and %d samples' \
-              %(Nnear, Nsim)
-        print 'Delta   : %7.3f' %Delta
-        print 'p-value : %7.3f\n' %sig
+            print('%s (%d members)' %(cluster, len(z)))
+        print('Using %d neighbors and %d samples' \
+              %(Nnear, Nsim))
+        print('Delta   : %7.3f' %Delta)
+        print('p-value : %7.3f\n' %sig)
     if full_output:
         return Delta, sig, delta
     return Delta, sig
@@ -137,10 +137,11 @@ def significance(Delta, v, ra, dec, stat, Nnear=10, Nsim=1000):
 
 def print_results(output, obj, ra, dec, delta):
     out = open(output, 'w')
-    print >>out, '# ID    RA    Dec    delta'
+    print('# ID    RA    Dec    delta', file=out)
     for i in xrange(len(obj)):
-        print >>out, '%10s   %9.5f   %8.4f   %.3f' \
-                     %(obj[i], ra[i], dec[i], delta[i])
+        print('%10s   %9.5f   %8.4f   %.3f' \
+                 %(obj[i], ra[i], dec[i], delta[i]),
+              file=out)
     out.close()
     return
 

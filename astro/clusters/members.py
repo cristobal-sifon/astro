@@ -123,11 +123,11 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
                 binsize = r[bins[i][-1]] - r[bins[i-1][-1]]
             binsizes.append(binsize)
             if debug:
-                print 'binsize:', binsize, 'kpc'
+                print('binsize:', binsize, 'kpc')
                 for i in bins:
                     pylab.axvline(r[i][-1], ls=':', color='b')
         if debug:
-            print 'Nbins:', len(bins)
+            print('Nbins:', len(bins))
         return bins, binsizes
 
     from itertools import count, izip
@@ -235,7 +235,7 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
         if type(output) == str:
             pylab.savefig(output, format=output[-3:])
             if verbose:
-                print 'Saved to', output
+                print('Saved to', output)
         else:
             pylab.show()
         pylab.close()
@@ -266,7 +266,7 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
       zo = Cbi(z[index])
       v = c * (z - zo) / (1 + zo)
       if verbose:
-        print '  zo = %.4f' %zo
+        print('  zo = %.4f' %zo)
       return zo, v
 
     def zoguess(z, zo=None):
@@ -290,13 +290,13 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
 
     no = len(r)
     if verbose:
-      print no, 'galaxies initially'
+      print(no, 'galaxies initially')
     j = numpy.arange(no)
     # initial redshift and peculiar velocities
     zo = zoguess(z, zo)
     v = c * (z - zo) / (1 + zo)
     if debug:
-      print 'zo = %.4f' %zo
+      print('zo = %.4f' %zo)
       bins = numpy.arange(0, 1.001, 0.01)
       pylab.hist(z, bins=bins, histtype='step')
       pylab.axvline(zo, ls='--')
@@ -318,14 +318,14 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
             msg += ' %.2f Mpc' %rcut
         else:
             msg += ' %d kpc' %rcut
-        print msg
+        print(msg)
     else:
       if verbose:
-        print 'No initial cut based on velocity'
+        print('No initial cut based on velocity')
     if full_output:
       incut = j
     if debug:
-      print sorted(j), n
+      print(sorted(j), n)
     # calibrate redshift and peculiar velocities
     zo = numpy.median(z[j])
     v = c * (z - zo) / (1 + zo)
@@ -345,9 +345,9 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
       members, binsizes_orig, limits = results
 
     if verbose:
-      print 'First pass: %d members' %len(members)
+      print('First pass: %d members' %len(members))
     if debug:
-      print 'members:', sorted(members)
+      print('members:', sorted(members))
       plot(r, v, members, binsizes=binsizes_orig, limits=limits)
     zo, v = update(z, members)
 
@@ -374,19 +374,19 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
         zo, v = update(z, members)
         nit += 1
         if verbose:
-          print 'Iteration %d: %d members' %(nit, len(members))
+          print('Iteration %d: %d members' %(nit, len(members)))
         if debug:
-          print 'members:', sorted(members)
+          print('members:', sorted(members))
           plot(r, v, members, binsizes=binsizes, limits=limits)
       if verbose:
-        print 'Converged after %d iterations' %nit
+        print('Converged after %d iterations' %nit)
 
     if plot_output:
       plot(r, v, members, binsizes=binsizes_orig, limits=limits,
            output=plot_output, verbose=verbose)
 
     if verbose:
-      print 'Final number: %d members' %N
+      print('Final number: %d members' %N)
     if full_output:
       return members, binsizes_orig, nit, incut
     return members

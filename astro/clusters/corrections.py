@@ -121,10 +121,10 @@ def sigma_profile(sigma, aperture, r200, z=0, dsigma=0, orbits='iso',
       r1.append(conversions.rsph(m1, z))
     ap = r0 / r1[-1]
     if scipy.isnan(ap):
-        print x
-        print r1
-        print c, sigma, s1, r0, r2, ap
-        print ''
+        print(x)
+        print(r1)
+        print(c, sigma, s1, r0, r2, ap)
+        print()
         #exit()
     r200new = r1[-1]
     return s1, ap, r200new
