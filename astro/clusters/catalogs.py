@@ -104,13 +104,7 @@ def filename(catalogs, as_dict=True, squeeze=False, relative=False):
     return [fnames[key] for key in catalogs]
 
 
-def load(catalog):
-    """Load an entire catalog by its name"""
-    fname = filename(catalog, as_dict=False, squeeze=True)
-    return getdata(fname, ext=1)
-
-
-def objects(catalog, indices=None, cols=None, squeeze=False):
+def load(catalog, indices=None, cols=None, squeeze=False):
     """
     Retrieve data from a catalog using indices within it (which may
     be obtained using `query()`)
@@ -140,7 +134,8 @@ def objects(catalog, indices=None, cols=None, squeeze=False):
     if not isinstance(catalog, basestring):
         msg = 'argument catalog must be a string'
         raise TypeError(msg)
-    data = load(catalog)
+    fname = filename(catalog, as_dict=False, squeeze=True)
+    data = getdata(fname, ext=1)
     if cols is None:
         cols = data.names
     elif isinstance(cols, basestring):
