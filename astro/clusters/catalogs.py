@@ -1,6 +1,10 @@
-"""
+"""Query locally-stored cluster catalogs
 
-Query locally-stored cluster catalogs
+The following attributes may be modified by the user depending on their
+needs:
+
+    columns : list of columns to be loaded from each catalog by `query`
+    labels : label of each available catalog
 
 """
 from __future__ import absolute_import, division, print_function
@@ -25,6 +29,25 @@ else:
 # recommended).
 path = os.path.join(os.path.dirname(__file__), 'cluster_catalogs')
 
+# this one should not be modified
+_available = ('maxbcg', 'gmbcg', 'hecs2013', 'orca', 'psz1', 'psz2',
+              'redmapper', 'whl')
+# the user may choose to modify these two
+columns = {'maxbcg': 'none,RAJ2000,DEJ2000,zph',
+           'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
+           'hecs2013': 'Name,RAJ2000,DEJ2000,z',
+           'orca': 'ID,ra_bcg,dec_bcg,redshift',
+           'psz1': 'NAME,RA,DEC,REDSHIFT',
+           'psz2': 'NAME,RA,DEC,REDSHIFT',
+           'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
+           'whl': 'WHL,RAJ2000,DEJ2000,zph'}
+labels = {'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
+          'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1',
+          'psz2': 'PSZ2', 'redmapper': 'redMaPPer', 'whl': 'WHL'}
+# these serve to restore the above attributes if necessary
+_columns = columns.copy()
+_labels = labels.copy()
+
 
 def download(fname):
     """
@@ -41,7 +64,7 @@ def download(fname):
     local = os.path.join(path, fname)
     urllib.urlretrieve(online, local)
     return
-    
+
 
 def filename(catalogs, as_dict=True, squeeze=False, relative=False):
     """
@@ -67,19 +90,11 @@ def filename(catalogs, as_dict=True, squeeze=False, relative=False):
     fnames : list or dict
 
     """
-    fnames = {'maxbcg': 'maxbcg/maxBCG.fits',
-              'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
-              'hecs2013': 'hecs/2013/data.fits',
-              'orca': 'orca/fullstripe82.fits',
-              'psz1': os.path.join('planck', 'PSZ-2013', 'PLCK-DR1-SZ',
-                                   'COM_PCCS_SZ-union_R1.11.fits'),
-              'psz2': os.path.join('planck', 'PSZ-2015',
-                                   'HFI_PCCS_SZ-union_R2.08.fits'),
-              'redmapper': 'redmapper/redmapper_dr8_public' + \
-                           '_v5.10_catalog.fits',
-              'whl': 'whl/whl2015.fits'}
+    if relative:
+        fnames = _filenames.copy()
     if not relative:
-        fnames = {key: os.path.join(path, fnames[key]) for key in fnames}
+        fnames = {key: os.path.join(path, filename)
+                  for key, filename in _fienames.items()}
     if isinstance(catalogs, basestring):
         catalogs = catalogs.split(',')
     if as_dict:
@@ -87,6 +102,12 @@ def filename(catalogs, as_dict=True, squeeze=False, relative=False):
     if len(catalogs) == 1 and squeeze:
         return fnames[catalogs[0]]
     return [fnames[key] for key in catalogs]
+
+
+def load(catalog):
+    """Load an entire catalog by its name"""
+    fname = filename(catalog, as_dict=False, squeeze=True)
+    return getdata(fname, ext=1)
 
 
 def objects(catalog, indices=None, cols=None, squeeze=False):
@@ -119,8 +140,7 @@ def objects(catalog, indices=None, cols=None, squeeze=False):
     if not isinstance(catalog, basestring):
         msg = 'argument catalog must be a string'
         raise TypeError(msg)
-    fname = filename(catalog, as_dict=False, squeeze=True)
-    data = getdata(fname, ext=1)
+    data = load(catalog)
     if cols is None:
         cols = data.names
     elif isinstance(cols, basestring):
@@ -212,8 +232,6 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
       download any of them, then an IOError will be raised.
 
     """
-    available = ('maxbcg', 'gmbcg', 'hecs2013', 'orca', 'psz1', 'psz2',
-                 'redmapper', 'whl')
     # some formatting for convenience
     if not iterable(ra):
         ra = array([ra])
@@ -237,8 +255,8 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
     if unit == 'arcmin':
         radius = ones(ra.size) * radius# / 60
     else:
-        radius = array([dproj(zi, radius, input_unit='Mpc', unit='arcmin')
-                        for zi in z])
+        radius = array(
+            [dproj(zi, radius, input_unit='Mpc', unit='arcmin') for zi in z])
     if catalogs is None:
         catalogs = available
     else:
@@ -280,17 +298,6 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         msg = 'No catalogs available for query'
         raise IOError(msg)
 
-    labels = {'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
-              'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1',
-              'psz2': 'PSZ2', 'redmapper': 'redMaPPer', 'whl': 'WHL'}
-    columns = {'maxbcg': 'none,RAJ2000,DEJ2000,zph',
-               'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
-               'hecs2013': 'Name,RAJ2000,DEJ2000,z',
-               'orca': 'ID,ra_bcg,dec_bcg,redshift',
-               'psz1': 'NAME,RA,DEC,REDSHIFT',
-               'psz2': 'NAME,RA,DEC,REDSHIFT',
-               'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
-               'whl': 'WHL,RAJ2000,DEJ2000,zph'}
     for cat in catalogs:
         columns[cat] = columns[cat].split(',')
     matches = {}
@@ -354,3 +361,23 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         return matches[catalogs[0]], withmatch[catalogs[0]]
     return matches, withmatch
 
+
+#### Auxiliary functions
+
+
+def list_available():
+    print('Available catalogs:')
+    print(_available)
+    return
+
+
+def reset_columns():
+    global columns
+    columns = _columns.copy()
+    return
+
+
+def reset_labels():
+    global labels
+    labels = _labels.copy()
+    return
