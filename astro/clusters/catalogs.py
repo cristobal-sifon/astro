@@ -9,20 +9,20 @@ needs:
 """
 from __future__ import absolute_import, division, print_function
 
-import os
-import urllib
-import sys
 from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
 from astro import cosmology
+from astropy.io.fits import getdata
 from itertools import count
 from numpy import any as npany, arange, argmin, array, chararray, \
                   iterable, ones
-from astropy.io.fits import getdata
+import os
+import urllib
+import six
+import sys
 
 if sys.version_info[0] == 2:
-    from itertools import izip
-else:
-    izip = zip
+    from itertools import izip as zip
+
 
 # all catalogs are here
 # this can be modified by the user if wanted (though not
@@ -30,20 +30,35 @@ else:
 path = os.path.join(os.path.dirname(__file__), 'cluster_catalogs')
 
 # this one should not be modified
-_available = ('maxbcg', 'gmbcg', 'hecs2013', 'orca', 'psz1', 'psz2',
-              'redmapper', 'whl')
+_available = (
+    'maxbcg', 'gmbcg', 'hecs2013', 'orca', 'psz1', 'psz2',
+    'redmapper', 'whl')
+_filenames = {
+    'maxbcg': 'maxbcg/maxBCG.fits',
+    'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
+    'hecs2013': 'hecs/2013/data.fits',
+    'orca': 'orca/fullstripe82.fits',
+    'psz1': os.path.join(
+        'planck', 'PSZ-2013', 'PLCK-DR1-SZ', 'COM_PCCS_SZ-union_R1.11.fits'),
+    'psz2': os.path.join(
+        'planck', 'PSZ-2015', 'HFI_PCCS_SZ-union_R2.08.fits'),
+    'redmapper': os.path.join(
+        'redmapper', 'redmapper_dr8_public_v5.10_catalog.fits'),
+    'whl': 'whl/whl2015.fits'}
 # the user may choose to modify these two
-columns = {'maxbcg': 'none,RAJ2000,DEJ2000,zph',
-           'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
-           'hecs2013': 'Name,RAJ2000,DEJ2000,z',
-           'orca': 'ID,ra_bcg,dec_bcg,redshift',
-           'psz1': 'NAME,RA,DEC,REDSHIFT',
-           'psz2': 'NAME,RA,DEC,REDSHIFT',
-           'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
-           'whl': 'WHL,RAJ2000,DEJ2000,zph'}
-labels = {'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
-          'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1',
-          'psz2': 'PSZ2', 'redmapper': 'redMaPPer', 'whl': 'WHL'}
+columns = {
+    'maxbcg': 'none,RAJ2000,DEJ2000,zph',
+    'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
+    'hecs2013': 'Name,RAJ2000,DEJ2000,z',
+    'orca': 'ID,ra_bcg,dec_bcg,redshift',
+    'psz1': 'NAME,RA,DEC,REDSHIFT',
+    'psz2': 'NAME,RA,DEC,REDSHIFT',
+    'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
+    'whl': 'WHL,RAJ2000,DEJ2000,zph'}
+labels = {
+    'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
+    'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1',
+    'psz2': 'PSZ2', 'redmapper': 'redMaPPer', 'whl': 'WHL'}
 # these serve to restore the above attributes if necessary
 _columns = columns.copy()
 _labels = labels.copy()
@@ -94,8 +109,8 @@ def filename(catalogs, as_dict=True, squeeze=False, relative=False):
         fnames = _filenames.copy()
     if not relative:
         fnames = {key: os.path.join(path, filename)
-                  for key, filename in _fienames.items()}
-    if isinstance(catalogs, basestring):
+                  for key, filename in _filenames.items()}
+    if isinstance(catalogs, six.string_types):
         catalogs = catalogs.split(',')
     if as_dict:
         return {key: fnames[key] for key in catalogs}
@@ -131,14 +146,14 @@ def load(catalog, indices=None, cols=None, squeeze=False):
                 requested catalog entries
 
     """
-    if not isinstance(catalog, basestring):
+    if not isinstance(catalog, six.string_types):
         msg = 'argument catalog must be a string'
         raise TypeError(msg)
     fname = filename(catalog, as_dict=False, squeeze=True)
     data = getdata(fname, ext=1)
     if cols is None:
         cols = data.names
-    elif isinstance(cols, basestring):
+    elif isinstance(cols, six.string_types):
         cols = cols.split(',')
     if indices is None:
         indices = numpy.ones(data[cols[0]].size, dtype=bool)
@@ -244,7 +259,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
             cosmo = cosmology
         dproj = cosmo.dProj
     # will this fail for numpy.string_?
-    if isinstance(ra[0], basestring):
+    if isinstance(ra[0], six.string_types):
         ra = array([hms2decimal(x, ':') for x in ra])
         dec = array([dms2decimal(y, ':') for y in dec])
     if unit == 'arcmin':
@@ -314,29 +329,29 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         name, xcat, ycat, zcat = data
         colnames = 'name,ra,dec,z'.split(',')
         close = [(abs(xcat - x) < 2*r/60.) & (abs(ycat - y) < 2*r/60.)
-                 for x, y, r in izip(ra, dec, radius)]
+                 for x, y, r in zip(ra, dec, radius)]
         withmatch[cat] = [j for j, c in enumerate(close) if name[c].size]
         dist = [60 * calcAngSepDeg(xcat[j], ycat[j], x, y)
-                for j, x, y in izip(close, ra, dec)]
-        match = [(d <= r) for d, r in izip(dist, radius)]
-        withmatch[cat] = array([w for w, m in izip(count(), match)
+                for j, x, y in zip(close, ra, dec)]
+        match = [(d <= r) for d, r in zip(dist, radius)]
+        withmatch[cat] = array([w for w, m in zip(count(), match)
                                 if w in withmatch[cat] and name[m].size])
         if return_single:
             match = [argmin(d) if d.size else None for d in dist]
         matches[cat] = {}
         # keeping them all now because they may be needed for other properties
-        for name, x in izip(colnames, data):
+        for name, x in zip(colnames, data):
             matches[cat][name] = array([x[j][mj] for w, j, mj
-                                        in izip(count(), close, match)
+                                        in zip(count(), close, match)
                                         if w in withmatch[cat]])
         if 'index' in return_values:
             matches[cat]['index'] = array([arange(xcat.size)[j][m]
-                                           for w, j, m in izip(count(),
+                                           for w, j, m in zip(count(),
                                                                close, match)
                                            if w in withmatch[cat]])
         if 'dist' in return_values:
             matches[cat]['dist'] = array([d[m] for w, d, m
-                                          in izip(count(), dist, match)
+                                          in zip(count(), dist, match)
                                           if w in withmatch[cat]])
             if unit == 'Mpc':
                 matches[cat]['dist'] *= array([dproj(zi, 1, unit='Mpc',
@@ -344,7 +359,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                                                for zi in matches[cat]['z']])
         if 'dz' in return_values:
             matches[cat]['dz'] = array([zcat[j][m] - zj for w, j, m, zj
-                                        in izip(count(), close, match, z)
+                                        in zip(count(), close, match, z)
                                         if w in withmatch[cat]])
         for key in matches[cat].keys():
             if key not in return_values:
