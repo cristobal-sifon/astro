@@ -12,9 +12,9 @@ from __future__ import absolute_import, division, print_function
 from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
 from astro import cosmology
 from astropy.io.fits import getdata
+from astropy.table import Table
 from itertools import count
-from numpy import any as npany, arange, argmin, array, chararray, \
-                  iterable, ones
+import numpy as np
 import os
 import urllib
 import six
@@ -23,13 +23,7 @@ import sys
 if sys.version_info[0] == 2:
     from itertools import izip as zip
 
-
-# all catalogs are here
-# this can be modified by the user if wanted (though not
-# recommended).
-path = os.path.join(os.path.dirname(__file__), 'cluster_catalogs')
-
-# this one should not be modified
+# these should not be modified
 _available = (
     'maxbcg', 'gmbcg', 'hecs2013', 'orca', 'psz1', 'psz2',
     'redmapper', 'whl')
@@ -45,7 +39,8 @@ _filenames = {
     'redmapper': os.path.join(
         'redmapper', 'redmapper_dr8_public_v5.10_catalog.fits'),
     'whl': 'whl/whl2015.fits'}
-# the user may choose to modify these two
+
+# the user may choose to modify these
 columns = {
     'maxbcg': 'none,RAJ2000,DEJ2000,zph',
     'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
@@ -59,9 +54,13 @@ labels = {
     'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
     'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1',
     'psz2': 'PSZ2', 'redmapper': 'redMaPPer', 'whl': 'WHL'}
+# all catalogs are here
+path = '/Users/cristobal/Documents/catalogs/'
 # these serve to restore the above attributes if necessary
 _columns = columns.copy()
 _labels = labels.copy()
+_path = '{0}'.format(path)
+
 
 
 def download(fname):
@@ -150,14 +149,15 @@ def load(catalog, indices=None, cols=None, squeeze=False):
         msg = 'argument catalog must be a string'
         raise TypeError(msg)
     fname = filename(catalog, as_dict=False, squeeze=True)
-    data = getdata(fname, ext=1)
+    data = Table(getdata(fname, ext=1))
     if cols is None:
-        cols = data.names
+        cols = data.colnames
     elif isinstance(cols, six.string_types):
         cols = cols.split(',')
     if indices is None:
-        indices = numpy.ones(data[cols[0]].size, dtype=bool)
-    data = [data[col][indices] for col in cols]
+        indices = np.ones(data[cols[0]].size, dtype=bool)
+    #data = [data[col][indices] for col in cols]
+    data = data[cols][indices]
     if len(cols) == 1 and squeeze:
         return data[0]
     return data
@@ -243,13 +243,13 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
 
     """
     # some formatting for convenience
-    if not iterable(ra):
-        ra = array([ra])
-        dec = array([dec])
-    if not iterable(z):
-        z = array([z])
+    if not np.iterable(ra):
+        ra = np.array([ra])
+        dec = np.array([dec])
+    if not np.iterable(z):
+        z = np.array([z])
     # in the case of matching by physical radius, demand z > 0
-    if unit == 'Mpc' and npany(z <= 0):
+    if unit == 'Mpc' and np.any(z <= 0):
         msg = "ERROR: in catalogs.query:"
         msg += " if unit=='Mpc' then z must be larger than 0"
         print(msg)
@@ -258,14 +258,14 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         if cosmo is None:
             cosmo = cosmology
         dproj = cosmo.dProj
-    # will this fail for numpy.string_?
+    # will this fail for np.string_?
     if isinstance(ra[0], six.string_types):
-        ra = array([hms2decimal(x, ':') for x in ra])
-        dec = array([dms2decimal(y, ':') for y in dec])
+        ra = np.array([hms2decimal(x, ':') for x in ra])
+        dec = np.array([dms2decimal(y, ':') for y in dec])
     if unit == 'arcmin':
-        radius = ones(ra.size) * radius# / 60
+        radius = np.ones(ra.size) * radius# / 60
     else:
-        radius = array(
+        radius = np.array(
             [dproj(zi, radius, input_unit='Mpc', unit='arcmin') for zi in z])
     if catalogs is None:
         catalogs = available
@@ -323,7 +323,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         # if the catalog doesn't give a name
         if columns[cat][0] == 'none':
             columns[cat][0] = 'Name'
-            data['Name'] = chararray(data[columns[cat][1]].size, itemsize=4)
+            data['Name'] = np.chararray(data[columns[cat][1]].size, itemsize=4)
             data['Name'][:] = 'none'
         data = [data[v] for v in columns[cat]]
         name, xcat, ycat, zcat = data
@@ -334,31 +334,31 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         dist = [60 * calcAngSepDeg(xcat[j], ycat[j], x, y)
                 for j, x, y in zip(close, ra, dec)]
         match = [(d <= r) for d, r in zip(dist, radius)]
-        withmatch[cat] = array([w for w, m in zip(count(), match)
+        withmatch[cat] = np.array([w for w, m in zip(count(), match)
                                 if w in withmatch[cat] and name[m].size])
         if return_single:
-            match = [argmin(d) if d.size else None for d in dist]
+            match = [np.argmin(d) if d.size else None for d in dist]
         matches[cat] = {}
         # keeping them all now because they may be needed for other properties
         for name, x in zip(colnames, data):
-            matches[cat][name] = array([x[j][mj] for w, j, mj
+            matches[cat][name] = np.array([x[j][mj] for w, j, mj
                                         in zip(count(), close, match)
                                         if w in withmatch[cat]])
         if 'index' in return_values:
-            matches[cat]['index'] = array([arange(xcat.size)[j][m]
+            matches[cat]['index'] = np.array([np.arange(xcat.size)[j][m]
                                            for w, j, m in zip(count(),
                                                                close, match)
                                            if w in withmatch[cat]])
         if 'dist' in return_values:
-            matches[cat]['dist'] = array([d[m] for w, d, m
+            matches[cat]['dist'] = np.array([d[m] for w, d, m
                                           in zip(count(), dist, match)
                                           if w in withmatch[cat]])
             if unit == 'Mpc':
-                matches[cat]['dist'] *= array([dproj(zi, 1, unit='Mpc',
+                matches[cat]['dist'] *= np.array([dproj(zi, 1, unit='Mpc',
                                                      input_unit='arcmin')
                                                for zi in matches[cat]['z']])
         if 'dz' in return_values:
-            matches[cat]['dz'] = array([zcat[j][m] - zj for w, j, m, zj
+            matches[cat]['dz'] = np.array([zcat[j][m] - zj for w, j, m, zj
                                         in zip(count(), close, match, z)
                                         if w in withmatch[cat]])
         for key in matches[cat].keys():
@@ -391,3 +391,12 @@ def reset_labels():
     global labels
     labels = _labels.copy()
     return
+
+
+def reset_path():
+    global path
+    path = _path.copy()
+    return
+
+
+
