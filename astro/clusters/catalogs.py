@@ -11,6 +11,7 @@ from __future__ import absolute_import, division, print_function
 
 from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
 from astro import cosmology
+from astropy.io import ascii
 from astropy.io.fits import getdata
 from astropy.table import Table
 from itertools import count
@@ -26,7 +27,7 @@ if sys.version_info[0] == 2:
 # these should not be modified
 _available = (
     'maxbcg', 'gmbcg', 'hecs2013', 'orca', 'psz1', 'psz2',
-    'redmapper', 'whl')
+    'redmapper', 'spt-sz', 'whl')
 _filenames = {
     'maxbcg': 'maxbcg/maxBCG.fits',
     'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
@@ -38,6 +39,7 @@ _filenames = {
         'planck', 'PSZ-2015', 'HFI_PCCS_SZ-union_R2.08.fits'),
     'redmapper': os.path.join(
         'redmapper', 'redmapper_dr8_public_v5.10_catalog.fits'),
+    'spt-sz': os.path.join('spt', 'bleem2015.txt'),
     'whl': 'whl/whl2015.fits'}
 
 # the user may choose to modify these
@@ -52,8 +54,8 @@ columns = {
     'whl': 'WHL,RAJ2000,DEJ2000,zph'}
 labels = {
     'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
-    'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1',
-    'psz2': 'PSZ2', 'redmapper': 'redMaPPer', 'whl': 'WHL'}
+    'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1', 'psz2': 'PSZ2',
+    'redmapper': 'redMaPPer', 'spt-sz': 'SPT-SZ', 'whl': 'WHL'}
 # all catalogs are here
 path = '/Users/cristobal/Documents/catalogs/'
 # these serve to restore the above attributes if necessary
@@ -149,7 +151,12 @@ def load(catalog, indices=None, cols=None, squeeze=False):
         msg = 'argument catalog must be a string'
         raise TypeError(msg)
     fname = filename(catalog, as_dict=False, squeeze=True)
-    data = Table(getdata(fname, ext=1))
+    # load. Some may have special formats
+    if catalog == 'spt-sz':
+        data = ascii.read(fname, format='cds')
+    else:
+        data = Table(getdata(fname, ext=1))
+
     if cols is None:
         cols = data.colnames
     elif isinstance(cols, six.string_types):
