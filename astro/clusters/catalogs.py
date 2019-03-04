@@ -38,7 +38,7 @@ _filenames = {
     'psz2': os.path.join(
         'planck', 'PSZ-2015', 'HFI_PCCS_SZ-union_R2.08.fits'),
     'redmapper': os.path.join(
-        'redmapper', 'redmapper_dr8_public_v5.10_catalog.fits'),
+        'redmapper', 'redmapper_dr8_public_v6.3_catalog.fits'),
     'spt-sz': os.path.join('spt', 'bleem2015.txt'),
     'whl': 'whl/whl2015.fits'}
 
@@ -210,7 +210,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                         * 'orca' (Geach, Murphy & Bower 2011)
                         * 'psz1' (Planck Collaboration XXIX 2014)
                         * 'psz2' (Planck Collaboration XXVII 2016)
-                        * 'redmapper' (Rykoff et al. 2014, v5.10)
+                        * 'redmapper' (Rykoff et al. 2014, v6.3)
                         * 'whl' (Wen, Han & Liu 2012, Wen & Han 2015)
       return_single : bool
                   whether to return the single closest matching cluster (if
@@ -283,7 +283,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         except ValueError:
             pass
     for name in catalogs:
-        if name not in available:
+        if name not in _available:
             msg = 'WARNING: catalog {0} not available'.format(name)
             print(msg)
     fnames = filename(catalogs)
@@ -319,7 +319,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         columns[cat] = columns[cat].split(',')
     matches = {}
     withmatch = {}
-    for cat in available:
+    for cat in _available:
         if cat not in catalogs:
             continue
         data = getdata(fnames[cat], ext=1)
