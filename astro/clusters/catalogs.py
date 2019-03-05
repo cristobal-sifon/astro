@@ -26,24 +26,27 @@ if sys.version_info[0] == 2:
 
 # these should not be modified
 _available = (
-    'maxbcg', 'gmbcg', 'hecs2013', 'orca', 'psz1', 'psz2',
-    'redmapper', 'spt-sz', 'whl')
+    'abell', 'actpol', 'advact', 'maxbcg', 'gmbcg', 'hecs2013', 'orca',
+    'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl')
 _filenames = {
+    'abell': 'abell/aco1989_ned.tbl',
+    'advact': 'advact/AdvACT_fixedSNR_gtr_5_20190304.fits',
+    'actpol': 'actpol/E-D56Clusters.fits',
     'maxbcg': 'maxbcg/maxBCG.fits',
     'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
     'hecs2013': 'hecs/2013/data.fits',
     'orca': 'orca/fullstripe82.fits',
-    'psz1': os.path.join(
-        'planck', 'PSZ-2013', 'PLCK-DR1-SZ', 'COM_PCCS_SZ-union_R1.11.fits'),
-    'psz2': os.path.join(
-        'planck', 'PSZ-2015', 'HFI_PCCS_SZ-union_R2.08.fits'),
-    'redmapper': os.path.join(
-        'redmapper', 'redmapper_dr8_public_v6.3_catalog.fits'),
-    'spt-sz': os.path.join('spt', 'bleem2015.txt'),
+    'psz1': 'planck/PSZ-2013/PLCK-DR1-SZ/COM_PCCS_SZ-union_R1.11.fits',
+    'psz2': 'planck/PSZ-2015/HFI_PCCS_SZ-union_R2.08.fits',
+    'redmapper': 'redmapper/redmapper_dr8_public_v6.3_catalog.fits',
+    'spt-sz': 'spt/bleem2015.txt',
     'whl': 'whl/whl2015.fits'}
 
 # the user may choose to modify these
 columns = {
+    'abell': 'Object Name,RA(deg),DEC(deg),Redshift',
+    'advact': 'name,RADeg,decDeg,redshift',
+    'actpol': 'name,RADeg,decDeg,z',
     'maxbcg': 'none,RAJ2000,DEJ2000,zph',
     'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
     'hecs2013': 'Name,RAJ2000,DEJ2000,z',
@@ -51,11 +54,16 @@ columns = {
     'psz1': 'NAME,RA,DEC,REDSHIFT',
     'psz2': 'NAME,RA,DEC,REDSHIFT',
     'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
+    'spt-sz': 'SPT,RAdeg,DEdeg,z',
     'whl': 'WHL,RAJ2000,DEJ2000,zph'}
 labels = {
-    'maxbcg': 'maxBCG', 'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
-    'hecs2016': 'HeCS-SZ', 'orca': 'ORCA', 'psz1': 'PSZ1', 'psz2': 'PSZ2',
-    'redmapper': 'redMaPPer', 'spt-sz': 'SPT-SZ', 'whl': 'WHL'}
+    'abell': 'Abell', 'advact': 'AdvACT',
+    'actpol': 'ACTPol', 'maxbcg': 'maxBCG',
+    'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
+    'hecs2016': 'HeCS-SZ', 'orca': 'ORCA',
+    'psz1': 'PSZ1', 'psz2': 'PSZ2',
+    'redmapper': 'redMaPPer', 'spt-sz': 'SPT-SZ',
+    'whl': 'WHL'}
 # all catalogs are here
 path = '/Users/cristobal/Documents/catalogs/'
 # these serve to restore the above attributes if necessary
@@ -154,8 +162,14 @@ def load(catalog, indices=None, cols=None, squeeze=False):
     # load. Some may have special formats
     if catalog == 'spt-sz':
         data = ascii.read(fname, format='cds')
+    elif catalog == 'abell':
+        data = ascii.read(fname, format='ipac')
+        # fill masked elements
+        data = data.filled()
+        #noz = (data[columns[data][3]].values == 1e20)
+        #data[noz] = -1
     else:
-        data = Table(getdata(fname, ext=1))
+        data = Table(getdata(fname, ext=1, ignore_missing_end=True))
 
     if cols is None:
         cols = data.colnames
@@ -203,15 +217,19 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                   list or comma-separated names of catalogs to be searched.
                   If not given, all available catalogs are searched. Allowed
                   values are:
+                        Optical catalogs:
                         * 'maxbcg' (Koester et al. 2007)
                         * 'gmbcg' (Hao et al. 2010)
                         * 'hecs2013' (Rines et al. 2013)
                         * 'hecs2016' (Rines et al. 2016) NOT YET
                         * 'orca' (Geach, Murphy & Bower 2011)
-                        * 'psz1' (Planck Collaboration XXIX 2014)
-                        * 'psz2' (Planck Collaboration XXVII 2016)
                         * 'redmapper' (Rykoff et al. 2014, v6.3)
                         * 'whl' (Wen, Han & Liu 2012, Wen & Han 2015)
+                        SZ catalogs:
+                        * 'actpol' (Hilton et al. 2018)
+                        * 'psz1' (Planck Collaboration XXIX 2014)
+                        * 'psz2' (Planck Collaboration XXVII 2016)
+                        * 'spt-sz' (Bleem et al. 2015)
       return_single : bool
                   whether to return the single closest matching cluster (if
                   within the search radius) or all those falling within the
@@ -237,10 +255,11 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                   a key of this dictionary if more than one catalog was
                   searched or if squeeze==False. If only one catalog was
                   provided and squeeze==True, then return a list with
-                  matching entry/ies.
+                  matching entry/ies. Distances are in the units specified
+                  in `unit` ('arcmin' by default)
       withmatch : dict
-                  for each searched catalog, contains hte indices of the
-                  provided clusters for which at least one match was found.
+                  for each searched catalog, contains the indices *in the
+                  input list* for which at least one match was found.
                   The same formatting as for "matches" applies.
 
     Notes
@@ -253,6 +272,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
     if not np.iterable(ra):
         ra = np.array([ra])
         dec = np.array([dec])
+    assert ra.size > 0, 'Received empty catalog'
     if not np.iterable(z):
         z = np.array([z])
     # in the case of matching by physical radius, demand z > 0
@@ -269,18 +289,19 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
     if isinstance(ra[0], six.string_types):
         ra = np.array([hms2decimal(x, ':') for x in ra])
         dec = np.array([dms2decimal(y, ':') for y in dec])
-    if unit == 'arcmin':
-        radius = np.ones(ra.size) * radius# / 60
+    # if using physical units, each matching radius is different
+    if unit in ('arcsec','arcmin','deg'):
+        radius = np.ones(ra.size) * radius
     else:
         radius = np.array(
-            [dproj(zi, radius, input_unit='Mpc', unit='arcmin') for zi in z])
+            [dproj(zi, radius, input_unit=unit, unit='deg') for zi in z])
     if catalogs is None:
         catalogs = available
     else:
         try:
             catalogs = catalogs.split(',')
         # if this happens then we assume catalogs is already a list
-        except ValueError:
+        except AttributeError:
             pass
     for name in catalogs:
         if name not in _available:
@@ -315,18 +336,22 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         msg = 'No catalogs available for query'
         raise IOError(msg)
 
-    for cat in catalogs:
-        columns[cat] = columns[cat].split(',')
     matches = {}
     withmatch = {}
+    # distance conversion
+    dc = {'arcsec': 3600, 'arcmin': 60, 'deg': 1}
+    # the "else" is for physical units, which are converted to deg above
+    dc = dc[unit] if unit in dc else 1
     for cat in _available:
         if cat not in catalogs:
             continue
-        data = getdata(fnames[cat], ext=1)
+        data = load(cat)
         aux = {}
-        for name in data.names:
+        for name in data.colnames:
             aux[name] = data[name]
         data = aux
+        if isinstance(columns[cat], six.string_types):
+            columns[cat] = columns[cat].split(',')
         # if the catalog doesn't give a name
         if columns[cat][0] == 'none':
             columns[cat][0] = 'Name'
@@ -335,45 +360,55 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         data = [data[v] for v in columns[cat]]
         name, xcat, ycat, zcat = data
         colnames = 'name,ra,dec,z'.split(',')
-        close = [(abs(xcat - x) < 2*r/60.) & (abs(ycat - y) < 2*r/60.)
+        close = [(abs(xcat - x) < 2*r/dc) & (abs(ycat - y) < 2*r/dc)
                  for x, y, r in zip(ra, dec, radius)]
-        withmatch[cat] = [j for j, c in enumerate(close) if name[c].size]
-        dist = [60 * calcAngSepDeg(xcat[j], ycat[j], x, y)
+        # objects in the target catalog that match something in the input
+        withmatch[cat] = np.array(
+            [j for j, c in enumerate(close) if name[c].size])
+        # distances from each input object to all matches
+        dist = [dc * np.array(calcAngSepDeg(xcat[j], ycat[j], x, y))
                 for j, x, y in zip(close, ra, dec)]
-        match = [(d <= r) for d, r in zip(dist, radius)]
-        withmatch[cat] = np.array([w for w, m in zip(count(), match)
-                                if w in withmatch[cat] and name[m].size])
+        # I don't understand why some elements are scalars but just fixing for now
+        dist = [d if np.iterable(d) else np.array([d]) for d in dist]
+
+        # whether the matches meet the distance criterion
+        match = np.array([(d <= r) for d, r in zip(dist, radius)])
+        withmatch[cat] = np.array(
+            [w for w, m in enumerate(match)
+             if w in withmatch[cat] and m.sum()])
+
         if return_single:
             match = [np.argmin(d) if d.size else None for d in dist]
         matches[cat] = {}
         # keeping them all now because they may be needed for other properties
         for name, x in zip(colnames, data):
-            matches[cat][name] = np.array([x[j][mj] for w, j, mj
-                                        in zip(count(), close, match)
-                                        if w in withmatch[cat]])
+            matches[cat][name] = np.array(
+                [x[j][mj] for w, j, mj in zip(count(), close, match)
+                 if w in withmatch[cat]])
         if 'index' in return_values:
-            matches[cat]['index'] = np.array([np.arange(xcat.size)[j][m]
-                                           for w, j, m in zip(count(),
-                                                               close, match)
-                                           if w in withmatch[cat]])
+            matches[cat]['index'] = np.array(
+                [np.arange(xcat.size)[j][m]
+                 for w, j, m in zip(count(), close, match)
+                 if w in withmatch[cat]])
         if 'dist' in return_values:
-            matches[cat]['dist'] = np.array([d[m] for w, d, m
-                                          in zip(count(), dist, match)
-                                          if w in withmatch[cat]])
+            matches[cat]['dist'] = np.array(
+                [d[m] for w, d, m in zip(count(), dist, match)
+                 if w in withmatch[cat]])
             if unit == 'Mpc':
-                matches[cat]['dist'] *= np.array([dproj(zi, 1, unit='Mpc',
-                                                     input_unit='arcmin')
-                                               for zi in matches[cat]['z']])
+                matches[cat]['dist'] *= np.array(
+                    [dproj(zi, 1, unit='Mpc', input_unit='arcmin')
+                     for zi in matches[cat]['z']])
         if 'dz' in return_values:
-            matches[cat]['dz'] = np.array([zcat[j][m] - zj for w, j, m, zj
-                                        in zip(count(), close, match, z)
-                                        if w in withmatch[cat]])
+            matches[cat]['dz'] = np.array(
+                [zcat[j][m] - zj for w, j, m, zj
+                 in zip(count(), close, match, z) if w in withmatch[cat]])
         for key in matches[cat].keys():
             if key not in return_values:
                 matches[cat].pop(key)
         if not return_single and name[j][match].size == 1:
             for key in matches[cat].keys():
                 matches[cat][key] = matches[cat][key][0]
+        print('{0}: {1} matches'.format(labels[cat], withmatch[cat].size))
     if len(catalogs) == 1 and squeeze:
         return matches[catalogs[0]], withmatch[catalogs[0]]
     return matches, withmatch
