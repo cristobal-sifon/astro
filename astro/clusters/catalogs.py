@@ -26,15 +26,16 @@ if sys.version_info[0] == 2:
 
 # these should not be modified
 _available = (
-    'abell', 'actpol', 'advact', 'maxbcg', 'gmbcg', 'hecs2013', 'orca',
-    'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl')
+    'abell', 'actpol', 'advact', 'gmbcg', 'hecs2013', 'maxbcg', 'mcxc',
+    'orca', 'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl')
 _filenames = {
     'abell': 'abell/aco1989_ned.tbl',
     'advact': 'advact/AdvACT_fixedSNR_gtr_5_20190304.fits',
     'actpol': 'actpol/E-D56Clusters.fits',
-    'maxbcg': 'maxbcg/maxBCG.fits',
     'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
     'hecs2013': 'hecs/2013/data.fits',
+    'maxbcg': 'maxbcg/maxBCG.fits',
+    'mcxc': 'mcxc/mcxc.fits',
     'orca': 'orca/fullstripe82.fits',
     'psz1': 'planck/PSZ-2013/PLCK-DR1-SZ/COM_PCCS_SZ-union_R1.11.fits',
     'psz2': 'planck/PSZ-2015/HFI_PCCS_SZ-union_R2.08.fits',
@@ -47,9 +48,10 @@ columns = {
     'abell': 'Object Name,RA(deg),DEC(deg),Redshift',
     'advact': 'name,RADeg,decDeg,redshift',
     'actpol': 'name,RADeg,decDeg,z',
-    'maxbcg': 'none,RAJ2000,DEJ2000,zph',
     'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
     'hecs2013': 'Name,RAJ2000,DEJ2000,z',
+    'maxbcg': 'none,RAJ2000,DEJ2000,zph',
+    'mcxc': 'MCXC,RAdeg,DEdeg,z',
     'orca': 'ID,ra_bcg,dec_bcg,redshift',
     'psz1': 'NAME,RA,DEC,REDSHIFT',
     'psz2': 'NAME,RA,DEC,REDSHIFT',
@@ -57,12 +59,19 @@ columns = {
     'spt-sz': 'SPT,RAdeg,DEdeg,z',
     'whl': 'WHL,RAJ2000,DEJ2000,zph'}
 labels = {
-    'abell': 'Abell', 'advact': 'AdvACT',
-    'actpol': 'ACTPol', 'maxbcg': 'maxBCG',
-    'gmbcg': 'GMBCG', 'hecs2013': 'HeCS',
-    'hecs2016': 'HeCS-SZ', 'orca': 'ORCA',
-    'psz1': 'PSZ1', 'psz2': 'PSZ2',
-    'redmapper': 'redMaPPer', 'spt-sz': 'SPT-SZ',
+    'abell': 'Abell',
+    'advact': 'AdvACT',
+    'actpol': 'ACTPol',
+    'gmbcg': 'GMBCG',
+    'hecs2013': 'HeCS',
+    'hecs2016': 'HeCS-SZ',
+    'maxbcg': 'maxBCG',
+    'mcxc': 'MCXC',
+    'orca': 'ORCA',
+    'psz1': 'PSZ1',
+    'psz2': 'PSZ2',
+    'redmapper': 'redMaPPer',
+    'spt-sz': 'SPT-SZ',
     'whl': 'WHL'}
 # all catalogs are here
 path = '/Users/cristobal/Documents/catalogs/'
