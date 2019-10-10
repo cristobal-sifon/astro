@@ -128,8 +128,8 @@ def mstar(z, band='megacam_r', zf=5.,
     else:
         znorm = 0.7
     mstar = mstar_z(numpy.log(znorm))
-    if band == 'sloan_i':
-        return mstar
+    #if band == 'sloan_i':
+        #return mstar
     sed.set_normalization('sloan_i', znorm, mstar, apparent=apparent)
     mstar = sed.get_apparent_mags(zf, band, z)
     return mstar

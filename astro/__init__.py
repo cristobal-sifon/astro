@@ -10,19 +10,20 @@ Some of these classes are superseded by various astropy modules (e.g.,
 units), but others remain useful in their own right.
 
 Classes:
-  clusters -- Calculations relevant to clusters of galaxies (e.g. mass)
-  cosmology -- Cosmological parameters of astronomical objects (e.g.
-               distances)
-  constants -- Various physical and astrophysical constants in cgs
+    clusters -- Calculations relevant to clusters of galaxies (e.g. mass)
+    cosmology -- Cosmological parameters of astronomical objects (e.g.
+                 distances)
+    constants -- Various physical and astrophysical constants in cgs
                units
-  photometry -- Calculations and utilities for photometric data
-  units -- Unit conversions from cgs
+    footprint -- Working with footprints
+    photometry -- Calculations and utilities for photometric data
+    units -- Unit conversions from cgs
 
-  See each class for more help
+    See each class for more help
 
 """
 
 from . import *
 
 
-__version__ = '0.1.2'
+__version__ = '0.2.0b0'
