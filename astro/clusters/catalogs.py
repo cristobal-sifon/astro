@@ -26,14 +26,15 @@ if sys.version_info[0] == 2:
 
 # these should not be modified
 _available = (
-    'abell', 'actpol', 'advact', 'gmbcg', 'hecs2013', 'maxbcg', 'mcxc',
-    'orca', 'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl')
+    'abell', 'actpol', 'advact', 'gmbcg', 'hecs2013', 'madcows', 'maxbcg',
+    'mcxc', 'orca', 'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl')
 _filenames = {
     'abell': 'abell/aco1989_ned.tbl',
     'advact': 'advact/AdvACT_fixedSNR_gtr_5_20190304.fits',
     'actpol': 'actpol/E-D56Clusters.fits',
     'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
     'hecs2013': 'hecs/2013/data.fits',
+    'madcows': 'madcows/wise_panstarrs.txt',
     'maxbcg': 'maxbcg/maxBCG.fits',
     'mcxc': 'mcxc/mcxc.fits',
     'orca': 'orca/fullstripe82.fits',
@@ -50,6 +51,7 @@ columns = {
     'actpol': 'name,RADeg,decDeg,z',
     'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
     'hecs2013': 'Name,RAJ2000,DEJ2000,z',
+    'madcows': 'Cluster,Rahms,Dechms,Photz',
     'maxbcg': 'none,RAJ2000,DEJ2000,zph',
     'mcxc': 'MCXC,RAdeg,DEdeg,z',
     'orca': 'ID,ra_bcg,dec_bcg,redshift',
@@ -65,6 +67,7 @@ labels = {
     'gmbcg': 'GMBCG',
     'hecs2013': 'HeCS',
     'hecs2016': 'HeCS-SZ',
+    'madcows': 'MaDCoWS',
     'maxbcg': 'maxBCG',
     'mcxc': 'MCXC',
     'orca': 'ORCA',
@@ -74,7 +77,11 @@ labels = {
     'spt-sz': 'SPT-SZ',
     'whl': 'WHL'}
 # all catalogs are here
-path = '/Users/cristobal/Documents/catalogs/'
+if 'DOCS' in os.environ:
+    path = os.environ['DOCS']
+else:
+    path = os.path.join(os.environ['HOME'], 'Documents')
+path = os.path.join(path, 'catalogs')
 # these serve to restore the above attributes if necessary
 _columns = columns.copy()
 _labels = labels.copy()
@@ -169,7 +176,7 @@ def load(catalog, indices=None, cols=None, squeeze=False):
         raise TypeError(msg)
     fname = filename(catalog, as_dict=False, squeeze=True)
     # load. Some may have special formats
-    if catalog == 'spt-sz':
+    if catalog in ('madcows','spt-sz'):
         data = ascii.read(fname, format='cds')
     elif catalog == 'abell':
         data = ascii.read(fname, format='ipac')
