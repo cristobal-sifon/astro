@@ -1,4 +1,6 @@
 *~
+*.save
+
 *.pyc
 __pycache__
 build
