@@ -34,26 +34,33 @@ References
 """
 from __future__ import absolute_import, division, print_function
 
-import emcee
-import numpy as np
-import pylab
-import sys
-import warnings
 from itertools import count
-from matplotlib import ticker
+import emcee
+from matplotlib import pyplot as plt, ticker
+import numpy as np
 from scipy import integrate, optimize, stats
 from scipy.special import erf
+import sys
 from time import sleep
+import warnings
 
 if sys.version_info[0] == 2:
     from itertools import izip
+    input = raw_input
 else:
     izip = zip
     xrange = range
 
-# my code
-from plottools import plotutils
+# my code -- can pip install!
+from plottery import plotutils
 plotutils.update_rcParams()
+
+# requires manual installation
+try:
+    import ecgmmPy
+    _has_ecgmm = True
+except ImportError:
+    _has_ecgmm = False
 
 # local
 from .. import cosmology
@@ -270,10 +277,10 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
         scatter = rs[2]
 
     # define figure
-    fig = pylab.figure(figsize=(9,6))
+    fig = plt.figure(figsize=(9,6))
 
     # CMD
-    cmr = pylab.axes([0.12, 0.12, 0.65, 0.84])
+    cmr = plt.axes([0.12, 0.12, 0.65, 0.84])
     #cmr.set_xlabel('{0}-band magnitude'.format(mag_label))
     #cmr.set_ylabel('{0} color'.format(color_label))
     cmr.set_xlabel(mag_label)
@@ -333,7 +340,7 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
     cmr.set_ylim(*ylim)
 
     # Color histogram
-    ch = pylab.axes([0.77, 0.12, 0.2, 0.84])
+    ch = plt.axes([0.77, 0.12, 0.2, 0.84])
     bins = np.arange(ylim[0], ylim[1] + 0.05, 0.05)
     n, bins, patches = ch.hist(color, bins=bins, histtype='stepfilled',
                                orientation='horizontal', fc=yellow)
@@ -348,7 +355,7 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
             f_rs = stats.norm.pdf(t, mu[0], sigma[0])
             f_rs = f_rs / (np.sqrt(2*np.pi) * sigma[0]**2)
             A_rs = f_rs.sum() * tbin
-            pylab.plot(f_rs * (A_hist/A_rs), t, '-', color=red, lw=2)
+            plt.plot(f_rs * (A_hist/A_rs), t, '-', color=red, lw=2)
         else:
             f_rs = np.zeros((len(mu)-1,t.size))
             A_rs = np.zeros((len(mu)-1,t.size))
@@ -366,19 +373,19 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
                 g_bc = f_bc * (alpha[0] * A_rs) / (sum(alpha[1:]) * A_bc)
                 g_bc = np.squeeze(g_bc)
                 A_bc = g_bc.sum() * tbin
-            #pylab.plot(g_bc, t, '-', color=blue, lw=2)
+            #plt.plot(g_bc, t, '-', color=blue, lw=2)
             # the areas of the histograms and curves shall be the same
             ratio_areas = A_hist / (np.sum(A_rs, axis=0) + A_bc)
             for fi in f_rs:
-                pylab.plot(fi*ratio_areas, t, '-', color=red, lw=2)
+                plt.plot(fi*ratio_areas, t, '-', color=red, lw=2)
             if A_bc > 0:
-                pylab.plot(g_bc*ratio_areas, t, '-', color=blue, lw=2)
+                plt.plot(g_bc*ratio_areas, t, '-', color=blue, lw=2)
 
     elif mu is not False: # will be a scalar
         f_rs = stats.norm.pdf(t, mu, sigma)
         f_rs = f_rs / (np.sqrt(2*np.pi) * sigma ** 2)
         A_rs = f_rs.sum() * tbin
-        pylab.plot(g_rs * (A_hist/A_rs), t, '-', color=red, lw=2)
+        plt.plot(g_rs * (A_hist/A_rs), t, '-', color=red, lw=2)
 
     # ticks and limits
     ch.set_ylim(*ylim)
@@ -392,15 +399,15 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
     # save?
     if output:
         try:
-            pylab.savefig(output, format=output[-3:])
+            plt.savefig(output, format=output[-3:])
         except IOError:
             sleep(3)
-            pylab.savefig(output, format=output[-3:])
+            plt.savefig(output, format=output[-3:])
         if verbose:
             print('  Saved to', output)
     else:
-        pylab.show()
-    pylab.close()
+        plt.show()
+    plt.close()
     return
 
 
@@ -559,13 +566,12 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
     galaxies = np.arange(len(mag), dtype=int)
     # initialize mu?
     if mu is None and do_ecgmm:
-        import ecgmmPy
         bins = np.arange(min(color), max(color)+0.01, 0.05)
         h, e = np.histogram(color, bins)
         co = e[np.argmax(h)]
         mu = [co-1, co]
         if verbose:
-            print('  mu = ({0:.3f},{1:.3f})'.format(mu[0], mu[1]))
+            print(f'mu_initial = ({mu[0]:.3f},{mu[1]:.3f})')
 
     # run ECGMM?
     if do_ecgmm:
@@ -580,11 +586,14 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
                                       alpha=[1], mu=[1.2], sigma=[0.05])
             rsg = rsgalaxies(mag, color, color_err, mu, sigma,
                              indices=galaxies, width=2)
-        po = (max(mu), (fix_slope if isinstance(fix_slope, float) else -0.01))
+        po = (max(mu),
+              (fix_slope if isinstance(fix_slope, float) else -0.01),
+              (fix_scatter if isinstance(fix_scatter, float) else 0.05))
         if verbose:
-            print('mu =', mu)
-            print('alpha =', alpha)
-            print('sigma =', sigma)
+            print('ECGMM run:')
+            print('    mu =', mu)
+            print('    alpha =', alpha)
+            print('    sigma =', sigma)
     # select objects for red sequence manually
     else:
         alpha = False
@@ -599,7 +608,7 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
                  mag_label=mag_label, color_label=color_label, ylim=plot_ylim,
                  fix_scatter=fix_scatter, verbose=verbose)
             msg = 'Write down lower and upper colors (space-separated): '
-            yo = raw_input(msg)
+            yo = input(msg)
             yo = [float(y) for y in yo.split()]
         else:
             yo = [mincolor]
@@ -625,8 +634,10 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
             mu = [x[np.argmax(n)]]
         if isinstance(fix_slope, float):
             po = [mu[0]]
-        else:
+        elif isinstance(fix_scatter, float):
             po = [mu[0], -0.01]
+        else:
+            po = [mu[0], -0.01, 0.05]
 
     #if method == 'bayesian':
         #t_zp = np.linspace(rs[0] - 0.5, rs[0] + 0.5, npoints)
@@ -658,9 +669,7 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
                     sigma_int=sigma_int, width=width, fit='tilted')
                 nit += 1
             if verbose:
-                print('  {0} iteration(s), final sample: {1} galaxies'.format(
-                            nit, len(rsg)))
-                print()
+                print(f'{nit} iterations, {len(rsg)} galaxies\n')
         else:
             slope = (rs[1] if len(rs) >= 2 else fix_slope)
             sigma_int = (rs[2] if len(rs) >= 3 else fix_scatter)
@@ -709,7 +718,7 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
         s = (rs[2], 0)
     if make_plot:
         plot(rsg, pivot, mag, color, color_err, alpha,
-             mu, s, (a[0],b[0]), bcg=bcg, output=plot_output,
+             mu, s, (a[0],b[0],s[0]), bcg=bcg, output=plot_output,
              #mu, sigma, rs, bcg=bcg, output=plot_output,
              comments=plot_comments, fix_scatter=fix_scatter,
              rsplot=True, mag_label=mag_label,
@@ -1018,8 +1027,8 @@ def _fit_mle(x1, x2, x2err=[], x1err=[], fix_slope=False, fix_scatter=False,
     else:
         def _loglike(p):
             w = lambda b, s: ((b*x1err)**2 + x2err + s**2)**0.5
-            return 2*np.log(w(p[1:])).sum() \
-                + (((x2-f(*p[:2])) / w(p[1:]))**2).sum() \
+            return 2*np.log(w(*p[1:])).sum() \
+                + (((x2-f(*p[:2])) / w(*p[1:]))**2).sum() \
                 + np.log(n*(2*np.pi)**2) / 2
 
     out = optimize.fmin(_loglike, po, disp=verbose, full_output=full_output)
@@ -1167,4 +1176,3 @@ def rsgalaxies(mag, color, color_err, mu, sigma, indices=None, width=2,
         cmr = mu + sigma*mag[indices]
         rsg = indices[np.absolute(color[indices] - cmr) < width*w]
     return rsg
-

@@ -39,7 +39,7 @@ import utils
 import readfile
 import stattools
 from lnr import lnr
-from plottools import plotutils, statsplots
+from plottery import plotutils, statsplots
 
 from .. import cosmology
 from ..clusters import conversions, profiles
