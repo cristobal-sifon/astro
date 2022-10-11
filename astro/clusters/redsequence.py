@@ -200,7 +200,8 @@ def lambda_richness(z, R, mag, color, color_err, rs_zeropoint, rs_slope,
 
 
 def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
-         sigma=False, rs=False, bcg=False, output='', comments='',
+         sigma=False, rs=False, bcg=False, bcg_props={'marker':'*'},
+         output='', comments='',
          fix_scatter=False, rsplot=True, mag_label='magnitude',
          color_label='color', ylim=False, verbose=True):
     """
@@ -289,7 +290,12 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
     if bcg is not False:
         try:
             if len(bcg) == 2:
-                cmr.plot(bcg[0], bcg[1], 'ko', mfc='none', mew=2, ms=9)
+                # some defaults
+                bcg_props['marker'] = bcg_props.get('marker', '*')
+                bcg_props['color'] = bcg_props.get('color', 'C1')
+                bcg_props['ms'] = bcg_props.get('ms', 10)
+                bcg_props['zorder'] = bcg_props.get('zorder', 100)
+                cmr.plot(*bcg, **bcg_props)
             else:
                 raise ValueError('parameter bcg must have length 2')
         except ValueError:
@@ -411,12 +417,14 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
     return
 
 
-def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
+def redsequence(mag, color, color_err=[], pivot=0, method='mle',
                 fix_slope=False, fix_norm=False, fix_scatter=False,
                 width=2, npoints=100, converge=True, make_plot=True,
+                bcg=False, bcg_props={},
                 plot_output='', plot_comments='', mag_label='m',
                 color_label='c', plot_ylim=False, do_ecgmm=True,
-                mincolor=None, maxcolor=None, minmag=None, flavour='BIC',
+                mincolor=None, maxcolor=None, minmag=None, maxmag=None,
+                flavour='BIC',
                 bootstrap=100, alpha=[0.2,0.8], mu=None, sigma=[1.0,0.05],
                 verbose=True, debug=False):
     """
@@ -439,8 +447,6 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
                   magnitude pivot for the RS fit, such that
                   [color=A+B*(mag-pivot)]. The pivot MUST NOT have been
                   subtracted from the magnitudes
-      bcg       : tuple of length 2 (optional)
-                  the magnitude and color of the BCG
       method    : {'mle', 'wls', 'bayesian'} (default 'mle')
                   Method to use in calculating the best-fit RS. The bayesian
                   likelihood is calculated without priors on the RS, and is
@@ -474,6 +480,11 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
       make_plot : boolean (default False)
                   plot the CMD with the resulting RS along with the color
                   histogram and results from ECGMM
+      bcg       : tuple of length 2 (optional)
+                  the magnitude and color of the BCG
+      bcg_props : dict (optional)
+                  kwargs passed to ``plt.plot`` to mark the BCG in the
+                  color-magnitude diagram
       plot_output : str (optional)
                   output filename for the CMD plot, with the extension.
       plot_comments : str (optional)
@@ -604,8 +615,9 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
                    'red sequence galaxies. You will have\n' \
                    'to input it in the terminal. You can also give a third\n' \
                    'argument, which will be a minimum magnitude to use'
-            plot(galaxies, pivot, mag, color, color_err, bcg=bcg, comments=comm,
-                 mag_label=mag_label, color_label=color_label, ylim=plot_ylim,
+            plot(galaxies, pivot, mag, color, color_err, bcg=bcg,
+                 bcg_props=bcg_props, comments=comm, mag_label=mag_label,
+                 color_label=color_label, ylim=plot_ylim,
                  fix_scatter=fix_scatter, verbose=verbose)
             msg = 'Write down lower and upper colors (space-separated): '
             yo = input(msg)
@@ -718,7 +730,8 @@ def redsequence(mag, color, color_err=[], pivot=0, bcg=False, method='mle',
         s = (rs[2], 0)
     if make_plot:
         plot(rsg, pivot, mag, color, color_err, alpha,
-             mu, s, (a[0],b[0],s[0]), bcg=bcg, output=plot_output,
+             mu, s, (a[0],b[0],s[0]), bcg=bcg, bcg_props=bcg_props,
+             output=plot_output,
              #mu, sigma, rs, bcg=bcg, output=plot_output,
              comments=plot_comments, fix_scatter=fix_scatter,
              rsplot=True, mag_label=mag_label,
