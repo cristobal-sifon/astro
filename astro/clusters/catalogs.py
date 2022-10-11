@@ -30,7 +30,7 @@ _available = (
     'mcxc', 'orca', 'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl')
 _filenames = {
     'abell': 'abell/aco1989_ned.tbl',
-    'advact': 'advact/AdvACT_fixedSNR_gtr_5_20190304.fits',
+    'advact': 'advact/DR5_cluster-catalog_v1.1.fits',
     'actpol': 'actpol/E-D56Clusters.fits',
     'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
     'hecs2013': 'hecs/2013/data.fits',

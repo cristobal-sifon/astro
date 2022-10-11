@@ -10,7 +10,7 @@ Tsun = 5777.             # the effective temperature of the Sun, in K
 Mearth = 5.9736e27       # the mass of the Earth, in g
 Rearth = 6.378136e8      # the radius of the Earth along the Equator, in cm
 
-G = 6.673e-8             # the gravitational constant, in cm³·g⁻¹·s⁻²
+G = 6.6743e-8             # the gravitational constant, in cm³·g⁻¹·s⁻²
 c = 2.99792458e10        # the speed of light, in cm·s⁻¹
 
 h = 6.626069e-27         # Planck's constant, in erg·s
