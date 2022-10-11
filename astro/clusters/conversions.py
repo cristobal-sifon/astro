@@ -75,33 +75,3 @@ def rsph(m, z, dm=0., ref='200c', unit='Mpc'):
     if unit == 'Mpc':
         return r
 
-
-def nfw(parameters, new, z=0):
-    """
-    Convert properties from one NFW profile to another one taking some
-    other fixed values.
-    
-    For instance, find the mass of an NFW with a different concentration
-    but the same normalization rho_s
-
-    Parameters
-    ----------
-        parameters : array-like, shape = 2x2
-                  the name and value of the original NFW parameters.
-                  Possible names are:
-                        'm' or 'm200' -- virial mass
-                        'c' -- concentration
-                        'rs' -- scale radius
-                        'r200' -- virial radius
-                        'rho' or 'rho_s' -- central density
-                                            (i.e., normalization)
-        output  : value to 
-
-    """
-    # check for wrong inputs later
-    
-    return
-
-
-
-
