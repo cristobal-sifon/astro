@@ -28,12 +28,12 @@ if sys.version_info[0] == 2:
 
 # these should not be modified
 _available = (
-    'abell', 'actpol', 'advact', 'gmbcg', 'hecs2013', 'madcows', 'maxbcg',
+    'abell', 'act-dr4', 'act-dr5', 'gmbcg', 'hecs2013', 'madcows', 'maxbcg',
     'mcxc', 'orca', 'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl')
 _filenames = {
     'abell': 'abell/aco1989_ned.tbl',
-    'advact': 'advact/DR5_cluster-catalog_v1.1.fits',
-    'actpol': 'actpol/E-D56Clusters.fits',
+    'act-dr4': 'actpol/E-D56Clusters.fits',
+    'act-dr5': 'advact/DR5_cluster-catalog_v1.1.fits',
     'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
     'hecs2013': 'hecs/2013/data.fits',
     'madcows': 'madcows/wise_panstarrs.txt',
@@ -49,8 +49,8 @@ _filenames = {
 # the user may choose to modify these
 columns = {
     'abell': 'Object Name,RA(deg),DEC(deg),Redshift',
-    'advact': 'name,RADeg,decDeg,redshift',
-    'actpol': 'name,RADeg,decDeg,z',
+    'act-dr4': 'name,RADeg,decDeg,z',
+    'act-dr5': 'name,RADeg,decDeg,redshift',
     'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
     'hecs2013': 'Name,RAJ2000,DEJ2000,z',
     'madcows': 'Cluster,Rahms,Dechms,Photz',
@@ -64,8 +64,8 @@ columns = {
     'whl': 'WHL,RAJ2000,DEJ2000,zph'}
 labels = {
     'abell': 'Abell',
-    'advact': 'AdvACT',
-    'actpol': 'ACTPol',
+    'act-dr5': 'AdvACT',
+    'act-dr4': 'ACTPol',
     'gmbcg': 'GMBCG',
     'hecs2013': 'HeCS',
     'hecs2016': 'HeCS-SZ',
@@ -78,6 +78,25 @@ labels = {
     'redmapper': 'redMaPPer',
     'spt-sz': 'SPT-SZ',
     'whl': 'WHL'}
+references  = {
+    # optical
+    'abell': 'Abell 1958',
+    'gmbcg': 'Hao et al. 2010',
+    'hecs2013': 'Rines et al. 2013',
+    'hecs2016': 'Rines et al. 2016',
+    'maxbcg': 'Koester et al. 2007',
+    'orca': 'Geach, Murphy & Bower 2011',
+    'redmapper-sdss': 'Rykoff et al. 2014',
+    'whl': 'Wen, Han & Liu 2012; Wen & Han 2015',
+    # sz
+    'act-dr4': 'Hilton et al. 2018',
+    'act-dr5': 'Hilton et al. 2021',
+    'psz1': 'Planck Collaboration XXIX 2014',
+    'psz2': 'Planck Collaboration XXVII 2016',
+    'spt-sz': 'Bleem et al. 2015',
+    # x-ray
+    'mcxc': 'Piffaretti et al. 2011'
+    }
 # all catalogs are here
 if 'DOCS' in os.environ:
     path = os.environ['DOCS']
@@ -92,23 +111,26 @@ _path = '{0}'.format(path)
 
 class Catalog:
 
-    def __init__(self, name, indices=None, cols=None):
+    def __init__(self, name, catalog=None, indices=None, cols=None,
+                 base_cols=('name','ra','dec','z')):
         """
         Retrieve data from a catalog using indices within it (which may
         be obtained using `query()`)
 
         Parameters
         ----------
-        name   : str
-                    name of the catalog
-        indices   : array of int (optional)
-                    indices of the objects whose information is requested.
-                    These indices may be obtained by running `query()`
-                    using the positions of the objects first. If not given,
-                    the full catalog will be returned.
-        cols      : str or list of str (optional)
-                    list or comma-separated names of the columns wanted. If
-                    not given, all columns are returned.
+        name : str
+            name of the catalog
+        catalog : ``astropy.table.Table`` (optional)
+            catalog table
+        indices : array of int (optional)
+            indices of the objects whose information is requested.
+            These indices may be obtained by running `query()`
+            using the positions of the objects first. If not given,
+            the full catalog will be returned.
+        cols : str or list of str (optional)
+            list or comma-separated names of the columns wanted. If
+            not given, all columns are returned.
 
         Returns
         -------
@@ -122,19 +144,26 @@ class Catalog:
         self.name = name
         self._indices = indices
         self._cols = cols
-        self.label = labels[self.name]
-        fname = self.filename()
-        # load. Some may have special formats
-        if self.name in ('madcows','spt-sz'):
-            catalog = ascii.read(fname, format='cds')
-        elif self.name == 'abell':
-            catalog = ascii.read(fname, format='ipac')
-            # fill masked elements
-            catalog = catalog.filled()
-            #noz = (data[columns[data][3]].values == 1e20)
-            #data[noz] = -1
+        if catalog is None:
+            if name not in _available:
+                raise ValueError(f'Available catalogs are {_available}')
+            self.label = labels[self.name]
+            self.reference = references[self.name]
+            fname = self.filename()
+            # load. Some may have special formats
+            if self.name in ('madcows','spt-sz'):
+                catalog = ascii.read(fname, format='cds')
+            elif self.name == 'abell':
+                catalog = ascii.read(fname, format='ipac')
+                # fill masked elements
+                catalog = catalog.filled()
+                #noz = (data[columns[data][3]].values == 1e20)
+                #data[noz] = -1
+            else:
+                catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
+            base_cols = columns[self.name].split(',')
         else:
-            catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
+            self.label = self.name
         if cols is None:
             cols = catalog.colnames
         elif isinstance(cols, six.string_types):
@@ -143,16 +172,23 @@ class Catalog:
             indices = np.ones(catalog[cols[0]].size, dtype=bool)
         catalog = catalog[cols][indices]
         self.catalog = catalog
-        self._columns = columns[self.name].split(',')
-        self.clusters, self.ra, self.dec, self.z \
-            = [self.catalog[col] for col in self._columns]
+        try:
+            self.clusters, self.ra, self.dec, self.z \
+                = [self.catalog[col] for col in base_cols]
+        except KeyError:
+            err = f'at least one of base_cols {base_cols} does not exist.\n' \
+                f'available columns:\n{np.sort(self.catalog.colnames)}'
+            raise KeyError(err)
         self._coords = None
 
     def __repr__(self):
-        return f"Catalog({self.name}, indices={self._indices}, cols={self._cols})"
+        return f'Catalog("{self.name}", indices={self._indices},' \
+            f' cols={self._cols})\n' \
+            f'{self.catalog}'
 
     def __str__(self):
-        return f"{self.label} catalog"
+        return f"{self.label} catalog ({self.reference})" \
+            f'{self.catalog}'
 
     @staticmethod
     def list_available():
@@ -370,7 +406,8 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                         * 'redmapper' (Rykoff et al. 2014, v6.3)
                         * 'whl' (Wen, Han & Liu 2012, Wen & Han 2015)
                         SZ catalogs:
-                        * 'actpol' (Hilton et al. 2018)
+                        * 'act-dr4' (Hilton et al. 2018)
+                        * 'act-dr5' (Hilton et al. 2021)
                         * 'psz1' (Planck Collaboration XXIX 2014)
                         * 'psz2' (Planck Collaboration XXVII 2016)
                         * 'spt-sz' (Bleem et al. 2015)
