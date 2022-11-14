@@ -11,6 +11,8 @@ from __future__ import absolute_import, division, print_function
 
 from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
 from astro import cosmology
+from astropy import units as u
+from astropy.coordinates import SkyCoord
 from astropy.io import ascii
 from astropy.io.fits import getdata
 from astropy.table import Table
@@ -88,28 +90,159 @@ _labels = labels.copy()
 _path = '{0}'.format(path)
 
 
+class Catalog:
 
-def download(fname):
-    """
-    Download a catalog from the web
+    def __init__(self, name, indices=None, cols=None):
+        """
+        Retrieve data from a catalog using indices within it (which may
+        be obtained using `query()`)
 
-    """
-    # online location
-    www = r'http://www.astro.princeton.edu/~sifon/cluster_catalogs/'
-    online = os.path.join(www, fname)
-    # local path
-    path_local = os.path.join(path, os.path.dirname(fname))
-    if not os.path.isdir(path_local):
-        os.makedirs(path_local)
-    local = os.path.join(path, fname)
-    urllib.urlretrieve(online, local)
-    return
+        Parameters
+        ----------
+        name   : str
+                    name of the catalog
+        indices   : array of int (optional)
+                    indices of the objects whose information is requested.
+                    These indices may be obtained by running `query()`
+                    using the positions of the objects first. If not given,
+                    the full catalog will be returned.
+        cols      : str or list of str (optional)
+                    list or comma-separated names of the columns wanted. If
+                    not given, all columns are returned.
+
+        Returns
+        -------
+        data      : list of arrays
+                    requested catalog entries
+
+        """
+        if not isinstance(name, six.string_types):
+            msg = 'argument name must be a string'
+            raise TypeError(msg)
+        self.name = name
+        self._indices = indices
+        self._cols = cols
+        self.label = labels[self.name]
+        fname = self.filename()
+        # load. Some may have special formats
+        if self.name in ('madcows','spt-sz'):
+            catalog = ascii.read(fname, format='cds')
+        elif self.name == 'abell':
+            catalog = ascii.read(fname, format='ipac')
+            # fill masked elements
+            catalog = catalog.filled()
+            #noz = (data[columns[data][3]].values == 1e20)
+            #data[noz] = -1
+        else:
+            catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
+        if cols is None:
+            cols = catalog.colnames
+        elif isinstance(cols, six.string_types):
+            cols = cols.split(',')
+        if indices is None:
+            indices = np.ones(catalog[cols[0]].size, dtype=bool)
+        catalog = catalog[cols][indices]
+        self.catalog = catalog
+        self._columns = columns[self.name].split(',')
+        self.clusters, self.ra, self.dec, self.z \
+            = [self.catalog[col] for col in self._columns]
+        self._coords = None
+
+    def __repr__(self):
+        return f"Catalog({self.name}, indices={self._indices}, cols={self._cols})"
+
+    def __str__(self):
+        return f"{self.label} catalog"
+
+    @staticmethod
+    def list_available():
+        print(_available)
+
+    @property
+    def coords(self):
+        if self._coords is None:
+            self._coords = SkyCoord(
+                ra=self.ra, dec=self.dec, unit='deg', frame='icrs')
+        return self._coords
+
+    def filename(self, relative=False):
+        """
+        Return the file name of the corresponding catalogs
+
+        Parameters
+        ----------
+        relative  : bool
+                    whether to return the absolute or relative path. Mostly
+                    used when downloading catalogs, otherwise it should in
+                    general not be changed.
+
+        Returns
+        -------
+        filename : str
+            local filename containing the catalog
+
+        """
+        if relative:
+            fnames = _filenames.copy()
+        if not relative:
+            fnames = {key: os.path.join(path, filename)
+                      for key, filename in _filenames.items()}
+        return fnames[self.name]
+
+    # @staticmethod
+    # def download(filename):
+    #     """
+    #     Download a catalog from the web
+    #     
+    #     Need to post them somewhere or write down the original website
+
+    #     """
+    #     # online location
+    #     www = r'http://www.astro.princeton.edu/~sifon/cluster_catalogs/'
+    #     online = os.path.join(www, fname)
+    #     # local path
+    #     path_local = os.path.join(path, os.path.dirname(fname))
+    #     if not os.path.isdir(path_local):
+    #         os.makedirs(path_local)
+    #     local = os.path.join(path, fname)
+    #     urllib.urlretrieve(online, local)
+    #     return
+
+    def query(self, coords=None, ra=None, dec=None, radius=1*u.arcmin, z=0,
+              cosmo=None):
+        """
+        Query the catalog
+
+        Parameters
+        ----------
+        coords : ``astropy.coordinates.SkyCoord``
+        ra, dec : array-like
+        radius : ``astropy.units.Quantity``
+
+        Returns
+        -------
+        matches : ``astropy.table.Table``
+            matching objects
+        """
+        assert isinstance(radius, u.Quantity)
+        if coords is None:
+            if ra is None or dec is None:
+                raise ValueError('Need to specify either ra, dec or coords')
+            coords = SkyCoord(ra=ra, dec=dec, unit='deg', frame='icrs')
+        assert isinstance(coords, SkyCoord)
+        distances = self.coords.separation(coords[:,None])
+        closest = np.min(distances, axis=0)
+        matches = (closest <= radius)
+        return self.catalog[matches]
+
+
+
+## backwards compatibility
 
 
 def filename(catalogs, as_dict=True, squeeze=False, relative=False):
     """
     Return the file name of the corresponding catalogs
-
     Parameters
     ----------
     catalogs  : str or list of strings
@@ -124,11 +257,9 @@ def filename(catalogs, as_dict=True, squeeze=False, relative=False):
                 whether to return the absolute or relative path. Mostly
                 used when downloading catalogs, otherwise it should in
                 general not be changed.
-
     Returns
     -------
     fnames : list or dict
-
     """
     if relative:
         fnames = _filenames.copy()
@@ -148,7 +279,6 @@ def load(catalog, indices=None, cols=None, squeeze=False):
     """
     Retrieve data from a catalog using indices within it (which may
     be obtained using `query()`)
-
     Parameters
     ----------
     catalog   : str
@@ -164,12 +294,10 @@ def load(catalog, indices=None, cols=None, squeeze=False):
     squeeze   : bool
                 whether to return a one-element list if only one column
                 is given
-
     Returns
     -------
     data      : list of arrays
                 requested catalog entries
-
     """
     if not isinstance(catalog, six.string_types):
         msg = 'argument catalog must be a string'
@@ -212,27 +340,27 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
 
     Parameters
     ----------
-      ra        : (array of) float or str
-                  if float, should be the RA in decimal degrees; if str,
-                  should be in hms format ('hh:mm:ss', requires astLib)
-      dec       : (array of) float or str
-                  if float, should be the Dec in decimal degrees; if str,
-                  should be in dms format ('dd:mm:ss', requires astLib)
-      radius    : float (default 2)
-                  the search radius, in units given by argumetn "unit"
-      unit      : {'arcmin', 'Mpc'}
-                  the units of argument "radius". If Mpc, then argument "z"
-                  must be larger than zero.
-      z         : (array of) float (optional)
-                  redshift(s) of the cluster(s). Must be >0 if unit=='Mpc'.
-      cosmo     : module astro.cosmology (optional)
-                  if the matching is done in physical distance then pass
-                  this module to make sure all cosmological parameters are
-                  used consistently with the parent code!
-      catalogs  : str or list of str (optional)
-                  list or comma-separated names of catalogs to be searched.
-                  If not given, all available catalogs are searched. Allowed
-                  values are:
+    ra        : (array of) float or str
+                if float, should be the RA in decimal degrees; if str,
+                should be in hms format ('hh:mm:ss', requires astLib)
+    dec       : (array of) float or str
+                if float, should be the Dec in decimal degrees; if str,
+                should be in dms format ('dd:mm:ss', requires astLib)
+    radius    : float (default 2)
+                the search radius, in units given by argumetn "unit"
+    unit      : {'arcmin', 'Mpc'}
+                the units of argument "radius". If Mpc, then argument "z"
+                must be larger than zero.
+    z         : (array of) float (optional)
+                redshift(s) of the cluster(s). Must be >0 if unit=='Mpc'.
+    cosmo     : module astro.cosmology (optional)
+                if the matching is done in physical distance then pass
+                this module to make sure all cosmological parameters are
+                used consistently with the parent code!
+    catalogs  : str or list of str (optional)
+                list or comma-separated names of catalogs to be searched.
+                If not given, all available catalogs are searched. Allowed
+                values are:
                         Optical catalogs:
                         * 'maxbcg' (Koester et al. 2007)
                         * 'gmbcg' (Hao et al. 2010)
@@ -246,42 +374,42 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
                         * 'psz1' (Planck Collaboration XXIX 2014)
                         * 'psz2' (Planck Collaboration XXVII 2016)
                         * 'spt-sz' (Bleem et al. 2015)
-      return_single : bool
-                  whether to return the single closest matching cluster (if
-                  within the search radius) or all those falling within the
-                  search radius
-      return_values : any subset of ('name','ra','dec','z','index','dist','dz')
-                  what elements to return. 'index', 'dist' and 'dz' refer to
-                  the index in the catalog and the distances of the matching
-                  cluster(s) in arcmin and redshift space, respectively.
-                  NOTE: altering the order of the elements in return_values
-                  will have no effect in the order in which they are returned!
-      squeeze   : bool
-                  whether to return a list instead of a dictionary if only
-                  one catalog is provided
-      error_if_missing : bool
-                  if True, will raise an IOError if *any* of the
-                  requested catalogs are missing. Otherwise they will
-                  just be skipped.
+    return_single : bool
+                whether to return the single closest matching cluster (if
+                within the search radius) or all those falling within the
+                search radius
+    return_values : any subset of ('name','ra','dec','z','index','dist','dz')
+                what elements to return. 'index', 'dist' and 'dz' refer to
+                the index in the catalog and the distances of the matching
+                cluster(s) in arcmin and redshift space, respectively.
+                NOTE: altering the order of the elements in return_values
+                will have no effect in the order in which they are returned!
+    squeeze   : bool
+                whether to return a list instead of a dictionary if only
+                one catalog is provided
+    error_if_missing : bool
+                if True, will raise an IOError if *any* of the
+                requested catalogs are missing. Otherwise they will
+                just be skipped.
 
     Returns
     -------
-      matches   : dict
-                  matching elements per catalog. Each requested catalog is
-                  a key of this dictionary if more than one catalog was
-                  searched or if squeeze==False. If only one catalog was
-                  provided and squeeze==True, then return a list with
-                  matching entry/ies. Distances are in the units specified
-                  in `unit` ('arcmin' by default)
-      withmatch : dict
-                  for each searched catalog, contains the indices *in the
-                  input list* for which at least one match was found.
-                  The same formatting as for "matches" applies.
+    matches   : dict
+                matching elements per catalog. Each requested catalog is
+                a key of this dictionary if more than one catalog was
+                searched or if squeeze==False. If only one catalog was
+                provided and squeeze==True, then return a list with
+                matching entry/ies. Distances are in the units specified
+                in `unit` ('arcmin' by default)
+    withmatch : dict
+                for each searched catalog, contains the indices *in the
+                input list* for which at least one match was found.
+                The same formatting as for "matches" applies.
 
     Notes
     -----
-      If none of the catalogs exists and the user chooses not to
-      download any of them, then an IOError will be raised.
+    If none of the catalogs exists and the user chooses not to
+    download any of them, then an IOError will be raised.
 
     """
     # some formatting for convenience
@@ -377,7 +505,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         name, xcat, ycat, zcat = data
         colnames = 'name,ra,dec,z'.split(',')
         close = [(abs(xcat - x) < 2*r/dc) & (abs(ycat - y) < 2*r/dc)
-                 for x, y, r in zip(ra, dec, radius)]
+                for x, y, r in zip(ra, dec, radius)]
         # objects in the target catalog that match something in the input
         withmatch[cat] = np.array(
             [j for j, c in enumerate(close) if name[c].size])
@@ -391,7 +519,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         match = np.array([(d <= r) for d, r in zip(dist, radius)])
         withmatch[cat] = np.array(
             [w for w, m in enumerate(match)
-             if w in withmatch[cat] and m.sum()])
+            if w in withmatch[cat] and m.sum()])
 
         if return_single:
             match = [np.argmin(d) if d.size else None for d in dist]
@@ -400,24 +528,24 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         for name, x in zip(colnames, data):
             matches[cat][name] = np.array(
                 [x[j][mj] for w, j, mj in zip(count(), close, match)
-                 if w in withmatch[cat]])
+                if w in withmatch[cat]])
         if 'index' in return_values:
             matches[cat]['index'] = np.array(
                 [np.arange(xcat.size)[j][m]
-                 for w, j, m in zip(count(), close, match)
-                 if w in withmatch[cat]])
+                for w, j, m in zip(count(), close, match)
+                if w in withmatch[cat]])
         if 'dist' in return_values:
             matches[cat]['dist'] = np.array(
                 [d[m] for w, d, m in zip(count(), dist, match)
-                 if w in withmatch[cat]])
+                if w in withmatch[cat]])
             if unit == 'Mpc':
                 matches[cat]['dist'] *= np.array(
                     [dproj(zi, 1, unit='Mpc', input_unit='arcmin')
-                     for zi in matches[cat]['z']])
+                    for zi in matches[cat]['z']])
         if 'dz' in return_values:
             matches[cat]['dz'] = np.array(
                 [zcat[j][m] - zj for w, j, m, zj
-                 in zip(count(), close, match, z) if w in withmatch[cat]])
+                in zip(count(), close, match, z) if w in withmatch[cat]])
         for key in matches[cat].keys():
             if key not in return_values:
                 matches[cat].pop(key)
@@ -428,33 +556,4 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
     if len(catalogs) == 1 and squeeze:
         return matches[catalogs[0]], withmatch[catalogs[0]]
     return matches, withmatch
-
-
-#### Auxiliary functions
-
-
-def list_available():
-    print('Available catalogs:')
-    print(_available)
-    return
-
-
-def reset_columns():
-    global columns
-    columns = _columns.copy()
-    return
-
-
-def reset_labels():
-    global labels
-    labels = _labels.copy()
-    return
-
-
-def reset_path():
-    global path
-    path = _path.copy()
-    return
-
-
 
