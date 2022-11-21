@@ -1,14 +1,4 @@
-"""Query locally-stored cluster catalogs
-
-The following attributes may be modified by the user depending on their
-needs:
-
-    columns : list of columns to be loaded from each catalog by `query`
-    labels : label of each available catalog
-
-"""
-from __future__ import absolute_import, division, print_function
-
+"""Utility to work with locally-stored cluster catalogs"""
 from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
 from astro import cosmology
 from astropy import units as u
@@ -22,9 +12,6 @@ import os
 import urllib
 import six
 import sys
-
-if sys.version_info[0] == 2:
-    from itertools import izip as zip
 
 # these should not be modified
 _available = (
