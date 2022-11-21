@@ -64,8 +64,8 @@ columns = {
     'whl': 'WHL,RAJ2000,DEJ2000,zph'}
 labels = {
     'abell': 'Abell',
-    'act-dr5': 'AdvACT',
-    'act-dr4': 'ACTPol',
+    'act-dr5': 'ACT-DR5',
+    'act-dr4': 'ACT-DR4',
     'gmbcg': 'GMBCG',
     'hecs2013': 'HeCS',
     'hecs2016': 'HeCS-SZ',
@@ -114,8 +114,7 @@ class Catalog:
     def __init__(self, name, catalog=None, indices=None, cols=None,
                  base_cols=('name','ra','dec','z')):
         """
-        Retrieve data from a catalog using indices within it (which may
-        be obtained using `query()`)
+        Define a ``Catalog`` object
 
         Parameters
         ----------
@@ -131,22 +130,21 @@ class Catalog:
         cols : str or list of str (optional)
             list or comma-separated names of the columns wanted. If
             not given, all columns are returned.
-
-        Returns
-        -------
-        data      : list of arrays
-                    requested catalog entries
+        base_cols : list of str (optional)
+            column names for name, ra, dec, and redshift, in that order
 
         """
         if not isinstance(name, six.string_types):
             msg = 'argument name must be a string'
             raise TypeError(msg)
+        if catalog is None and name not in _available:
+            err = f'catalog {name} not available.' \
+                f' Available catalogs are {_available}'
+            raise ValueError(err)
         self.name = name
         self._indices = indices
         self._cols = cols
-        if catalog is None:
-            if name not in _available:
-                raise ValueError(f'Available catalogs are {_available}')
+        if name in _available:
             self.label = labels[self.name]
             self.reference = references[self.name]
             fname = self.filename()
@@ -164,6 +162,21 @@ class Catalog:
             base_cols = columns[self.name].split(',')
         else:
             self.label = self.name
+            self.reference = None
+            if not isinstance(catalog, Table):
+                catalog = Table(catalog)
+        # if necessary, adding an index column should happen before we define
+        # which columns to return
+        self.base_cols = base_cols
+        try:
+            self.nobj = catalog[self.base_cols[-1]].size
+        except KeyError:
+            err = f'key {self.base_cols[-1]} not found in catalog {name}'
+            raise ValueError(err)
+        if self.base_cols[0] not in catalog.colnames:
+            # add the id column at the beginning
+            catalog.add_column(
+                np.arange(self.nobj, dtype=int), 0, self.base_cols[0])
         if cols is None:
             cols = catalog.colnames
         elif isinstance(cols, six.string_types):
@@ -174,9 +187,9 @@ class Catalog:
         self.catalog = catalog
         try:
             self.clusters, self.ra, self.dec, self.z \
-                = [self.catalog[col] for col in base_cols]
+                = [self.catalog[col] for col in self.base_cols]
         except KeyError:
-            err = f'at least one of base_cols {base_cols} does not exist.\n' \
+            err = f'at least one of base_cols {self.base_cols} does not exist.\n' \
                 f'available columns:\n{np.sort(self.catalog.colnames)}'
             raise KeyError(err)
         self._coords = None
@@ -187,12 +200,33 @@ class Catalog:
             f'{self.catalog}'
 
     def __str__(self):
-        return f"{self.label} catalog ({self.reference})" \
-            f'{self.catalog}'
+        msg = f'{self.label} catalog'
+        if self.reference is not None:
+            msg = f'{msg} ({self.reference})'
+        return f'{msg}\n{self.catalog}'
+
+    def __getitem__(self, key):
+        return self.catalog[key]
+
+    def __iter__(self):
+        self.n = 0
+        return self
+
+    def __next__(self):
+        if self.n <= self.nobj:
+            i = self.catalog[self.n]
+            self.n += 1
+            return i
+        else:
+            raise StopIteration
 
     @staticmethod
     def list_available():
         print(_available)
+
+    @property
+    def colnames(self):
+        return self.catalog.colnames
 
     @property
     def coords(self):
@@ -244,16 +278,30 @@ class Catalog:
     #     urllib.urlretrieve(online, local)
     #     return
 
+    def crossmatch(self, catalog, radius=1*u.arcmin, z=0, cosmo=None, z_width=None):
+        assert isinstance(catalog, Catalog)
+        raise NotImplementedError
+
     def query(self, coords=None, ra=None, dec=None, radius=1*u.arcmin, z=0,
-              cosmo=None):
+              cosmo=None, z_width=None):
         """
-        Query the catalog
+        Query the catalog for specific coordinates
 
         Parameters
         ----------
         coords : ``astropy.coordinates.SkyCoord``
+            coordinates to query
         ra, dec : array-like
+            Right ascension and declination. Will be ignored if ``coords``
+            is provided
         radius : ``astropy.units.Quantity``
+            maximum matching radius in angular or physical units
+        z : float
+            redshift
+        cosmo : ``astropy.cosmology.FLRW``
+            cosmology to use when ``radius`` is in physical units
+        z_width : float
+            set in order to allow a maximum redshift difference
 
         Returns
         -------
@@ -267,6 +315,9 @@ class Catalog:
             coords = SkyCoord(ra=ra, dec=dec, unit='deg', frame='icrs')
         assert isinstance(coords, SkyCoord)
         distances = self.coords.separation(coords[:,None])
+        # matching in physical distance
+        if u.get_physical_type(radius.unit) == 'length':
+            raise NotImplementedError('matching in physical distance not implemented')
         closest = np.min(distances, axis=0)
         matches = (closest <= radius)
         return self.catalog[matches]
