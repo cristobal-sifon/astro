@@ -1,0 +1,323 @@
+"""Query locally-stored cluster catalogs
+
+The following attributes may be modified by the user depending on their
+needs:
+
+    columns : list of columns to be loaded from each catalog by `query`
+    labels : label of each available catalog
+
+"""
+from __future__ import absolute_import, division, print_function
+
+from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
+from astro import cosmology
+from astropy import units as u
+from astropy.coordinates import SkyCoord
+from astropy.io import ascii
+from astropy.io.fits import getdata
+from astropy.table import Table
+from itertools import count
+import numpy as np
+import os
+import urllib
+import six
+import sys
+
+if sys.version_info[0] == 2:
+    from itertools import izip as zip
+
+# these should not be modified
+_available = (
+    'abell', 'act-dr4', 'act-dr5', 'gmbcg', 'hecs2013', 'madcows', 'maxbcg',
+    'mcxc', 'orca', 'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl')
+_filenames = {
+    'abell': 'abell/aco1989_ned.tbl',
+    'act-dr4': 'actpol/E-D56Clusters.fits',
+    'act-dr5': 'advact/DR5_cluster-catalog_v1.1.fits',
+    'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
+    'hecs2013': 'hecs/2013/data.fits',
+    'madcows': 'madcows/wise_panstarrs.txt',
+    'maxbcg': 'maxbcg/maxBCG.fits',
+    'mcxc': 'mcxc/mcxc.fits',
+    'orca': 'orca/fullstripe82.fits',
+    'psz1': 'planck/PSZ-2013/PLCK-DR1-SZ/COM_PCCS_SZ-union_R1.11.fits',
+    'psz2': 'planck/PSZ-2015/HFI_PCCS_SZ-union_R2.08.fits',
+    'redmapper': 'redmapper/redmapper_dr8_public_v6.3_catalog.fits',
+    'spt-sz': 'spt/bleem2015.txt',
+    'whl': 'whl/whl2015.fits'}
+
+# the user may choose to modify these
+columns = {
+    'abell': 'Object Name,RA(deg),DEC(deg),Redshift',
+    'act-dr4': 'name,RADeg,decDeg,z',
+    'act-dr5': 'name,RADeg,decDeg,redshift',
+    'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
+    'hecs2013': 'Name,RAJ2000,DEJ2000,z',
+    'madcows': 'Cluster,Rahms,Dechms,Photz',
+    'maxbcg': 'none,RAJ2000,DEJ2000,zph',
+    'mcxc': 'MCXC,RAdeg,DEdeg,z',
+    'orca': 'ID,ra_bcg,dec_bcg,redshift',
+    'psz1': 'NAME,RA,DEC,REDSHIFT',
+    'psz2': 'NAME,RA,DEC,REDSHIFT',
+    'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
+    'spt-sz': 'SPT,RAdeg,DEdeg,z',
+    'whl': 'WHL,RAJ2000,DEJ2000,zph'}
+labels = {
+    'abell': 'Abell',
+    'act-dr5': 'ACT-DR5',
+    'act-dr4': 'ACT-DR4',
+    'gmbcg': 'GMBCG',
+    'hecs2013': 'HeCS',
+    'hecs2016': 'HeCS-SZ',
+    'madcows': 'MaDCoWS',
+    'maxbcg': 'maxBCG',
+    'mcxc': 'MCXC',
+    'orca': 'ORCA',
+    'psz1': 'PSZ1',
+    'psz2': 'PSZ2',
+    'redmapper': 'redMaPPer',
+    'spt-sz': 'SPT-SZ',
+    'whl': 'WHL'}
+references  = {
+    # optical
+    'abell': 'Abell 1958',
+    'gmbcg': 'Hao et al. 2010',
+    'hecs2013': 'Rines et al. 2013',
+    'hecs2016': 'Rines et al. 2016',
+    'maxbcg': 'Koester et al. 2007',
+    'orca': 'Geach, Murphy & Bower 2011',
+    'redmapper-sdss': 'Rykoff et al. 2014',
+    'whl': 'Wen, Han & Liu 2012; Wen & Han 2015',
+    # sz
+    'act-dr4': 'Hilton et al. 2018',
+    'act-dr5': 'Hilton et al. 2021',
+    'psz1': 'Planck Collaboration XXIX 2014',
+    'psz2': 'Planck Collaboration XXVII 2016',
+    'spt-sz': 'Bleem et al. 2015',
+    # x-ray
+    'mcxc': 'Piffaretti et al. 2011'
+    }
+# all catalogs are here
+if 'DOCS' in os.environ:
+    path = os.environ['DOCS']
+else:
+    path = os.path.join(os.environ['HOME'], 'Documents')
+path = os.path.join(path, 'catalogs')
+# these serve to restore the above attributes if necessary
+_columns = columns.copy()
+_labels = labels.copy()
+_path = '{0}'.format(path)
+
+
+class Catalog:
+
+    def __init__(self, name, catalog=None, indices=None, cols=None,
+                 base_cols=('name','ra','dec','z')):
+        """
+        Define a ``Catalog`` object
+
+        Parameters
+        ----------
+        name : str
+            name of the catalog
+        catalog : ``astropy.table.Table`` (optional)
+            catalog table
+        indices : array of int (optional)
+            indices of the objects whose information is requested.
+            These indices may be obtained by running `query()`
+            using the positions of the objects first. If not given,
+            the full catalog will be returned.
+        cols : str or list of str (optional)
+            list or comma-separated names of the columns wanted. If
+            not given, all columns are returned.
+        base_cols : list of str (optional)
+            column names for name, ra, dec, and redshift, in that order
+
+        """
+        if not isinstance(name, six.string_types):
+            msg = 'argument name must be a string'
+            raise TypeError(msg)
+        if catalog is None and name not in _available:
+            err = f'catalog {name} not available.' \
+                f' Available catalogs are {_available}'
+            raise ValueError(err)
+        self.name = name
+        self._indices = indices
+        self._cols = cols
+        if name in _available:
+            self.label = labels[self.name]
+            self.reference = references[self.name]
+            fname = self.filename()
+            # load. Some may have special formats
+            if self.name in ('madcows','spt-sz'):
+                catalog = ascii.read(fname, format='cds')
+            elif self.name == 'abell':
+                catalog = ascii.read(fname, format='ipac')
+                # fill masked elements
+                catalog = catalog.filled()
+                #noz = (data[columns[data][3]].values == 1e20)
+                #data[noz] = -1
+            else:
+                catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
+            base_cols = columns[self.name].split(',')
+        else:
+            self.label = self.name
+            self.reference = None
+            if not isinstance(catalog, Table):
+                catalog = Table(catalog)
+        # if necessary, adding an index column should happen before we define
+        # which columns to return
+        self.base_cols = base_cols
+        try:
+            self.nobj = catalog[self.base_cols[-1]].size
+        except KeyError:
+            err = f'key {self.base_cols[-1]} not found in catalog {name}'
+            raise ValueError(err)
+        if self.base_cols[0] not in catalog.colnames:
+            # add the id column at the beginning
+            catalog.add_column(
+                np.arange(self.nobj, dtype=int), 0, self.base_cols[0])
+        if cols is None:
+            cols = catalog.colnames
+        elif isinstance(cols, six.string_types):
+            cols = cols.split(',')
+        if indices is None:
+            indices = np.ones(catalog[cols[0]].size, dtype=bool)
+        catalog = catalog[cols][indices]
+        self.catalog = catalog
+        try:
+            self.clusters, self.ra, self.dec, self.z \
+                = [self.catalog[col] for col in self.base_cols]
+        except KeyError:
+            err = f'at least one of base_cols {self.base_cols} does not exist.\n' \
+                f'available columns:\n{np.sort(self.catalog.colnames)}'
+            raise KeyError(err)
+        self._coords = None
+
+    def __repr__(self):
+        return f'Catalog("{self.name}", indices={self._indices},' \
+            f' cols={self._cols})\n' \
+            f'{self.catalog}'
+
+    def __str__(self):
+        msg = f'{self.label} catalog'
+        if self.reference is not None:
+            msg = f'{msg} ({self.reference})'
+        return f'{msg}\n{self.catalog}'
+
+    def __getitem__(self, key):
+        return self.catalog[key]
+
+    def __iter__(self):
+        self.n = 0
+        return self
+
+    def __next__(self):
+        if self.n <= self.nobj:
+            i = self.catalog[self.n]
+            self.n += 1
+            return i
+        else:
+            raise StopIteration
+
+    @staticmethod
+    def list_available():
+        print(_available)
+
+    @property
+    def colnames(self):
+        return self.catalog.colnames
+
+    @property
+    def coords(self):
+        if self._coords is None:
+            self._coords = SkyCoord(
+                ra=self.ra, dec=self.dec, unit='deg', frame='icrs')
+        return self._coords
+
+    def filename(self, relative=False):
+        """
+        Return the file name of the corresponding catalogs
+
+        Parameters
+        ----------
+        relative  : bool
+                    whether to return the absolute or relative path. Mostly
+                    used when downloading catalogs, otherwise it should in
+                    general not be changed.
+
+        Returns
+        -------
+        filename : str
+            local filename containing the catalog
+
+        """
+        if relative:
+            fnames = _filenames.copy()
+        if not relative:
+            fnames = {key: os.path.join(path, filename)
+                      for key, filename in _filenames.items()}
+        return fnames[self.name]
+
+    # @staticmethod
+    # def download(filename):
+    #     """
+    #     Download a catalog from the web
+    #     
+    #     Need to post them somewhere or write down the original website
+
+    #     """
+    #     # online location
+    #     www = r'http://www.astro.princeton.edu/~sifon/cluster_catalogs/'
+    #     online = os.path.join(www, fname)
+    #     # local path
+    #     path_local = os.path.join(path, os.path.dirname(fname))
+    #     if not os.path.isdir(path_local):
+    #         os.makedirs(path_local)
+    #     local = os.path.join(path, fname)
+    #     urllib.urlretrieve(online, local)
+    #     return
+
+    def _crossmatch(self, catalog, radius=1*u.arcmin, z=0, cosmo=None, z_width=None):
+        assert isinstance(catalog, Catalog)
+        raise NotImplementedError
+
+    def query(self, coords=None, ra=None, dec=None, radius=1*u.arcmin, z=0,
+              cosmo=None, z_width=None):
+        """
+        Query the catalog for specific coordinates
+
+        Parameters
+        ----------
+        coords : ``astropy.coordinates.SkyCoord``
+            coordinates to query
+        ra, dec : array-like
+            Right ascension and declination. Will be ignored if ``coords``
+            is provided
+        radius : ``astropy.units.Quantity``
+            maximum matching radius in angular or physical units
+        z : float
+            redshift
+        cosmo : ``astropy.cosmology.FLRW``
+            cosmology to use when ``radius`` is in physical units
+        z_width : float
+            set in order to allow a maximum redshift difference
+
+        Returns
+        -------
+        matches : ``astropy.table.Table``
+            matching objects
+        """
+        assert isinstance(radius, u.Quantity)
+        if coords is None:
+            if ra is None or dec is None:
+                raise ValueError('Need to specify either ra, dec or coords')
+            coords = SkyCoord(ra=ra, dec=dec, unit='deg', frame='icrs')
+        assert isinstance(coords, SkyCoord)
+        distances = self.coords.separation(coords[:,None])
+        # matching in physical distance
+        if u.get_physical_type(radius.unit) == 'length':
+            raise NotImplementedError('matching in physical distance not implemented')
+        closest = np.min(distances, axis=0)
+        matches = (closest <= radius)
+        return self.catalog[matches]
