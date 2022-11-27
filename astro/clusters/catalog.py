@@ -84,8 +84,10 @@ references  = {
     # x-ray
     'mcxc': 'Piffaretti et al. 2011'
     }
-# all catalogs are here
-if 'DOCS' in os.environ:
+# all catalogs are here -- this should not be hard-coded
+if 'DATA' in os.environ:
+    path = os.environ['DATA']
+elif 'DOCS' in os.environ:
     path = os.environ['DOCS']
 else:
     path = os.path.join(os.environ['HOME'], 'Documents')
@@ -99,7 +101,7 @@ _path = '{0}'.format(path)
 class Catalog:
 
     def __init__(self, name, catalog=None, indices=None, cols=None,
-                 base_cols=('name','ra','dec','z')):
+                 base_cols=('name','ra','dec','z'), coord_unit='deg'):
         """
         Define a ``Catalog`` object
 
@@ -129,6 +131,7 @@ class Catalog:
                 f' Available catalogs are {_available}'
             raise ValueError(err)
         self.name = name
+        self.coord_unit = coord_unit
         self._indices = indices
         self._cols = cols
         if name in _available:
@@ -173,7 +176,7 @@ class Catalog:
         catalog = catalog[cols][indices]
         self.catalog = catalog
         try:
-            self.clusters, self.ra, self.dec, self.z \
+            self.obj, self.ra, self.dec, self.z \
                 = [self.catalog[col] for col in self.base_cols]
         except KeyError:
             err = f'at least one of base_cols {self.base_cols} does not exist.\n' \
@@ -219,7 +222,7 @@ class Catalog:
     def coords(self):
         if self._coords is None:
             self._coords = SkyCoord(
-                ra=self.ra, dec=self.dec, unit='deg', frame='icrs')
+                ra=self.ra, dec=self.dec, unit=self.coord_unit, frame='icrs')
         return self._coords
 
     def filename(self, relative=False):
