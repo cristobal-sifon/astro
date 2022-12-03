@@ -15,12 +15,14 @@ import sys
 
 # these should not be modified
 _available = (
-    'abell', 'act-dr4', 'act-dr5', 'gmbcg', 'hecs2013', 'madcows', 'maxbcg',
-    'mcxc', 'orca', 'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl')
+    'abell', 'act-dr4', 'act-dr5', 'codex', 'gmbcg', 'hecs2013', 'madcows',
+    'maxbcg', 'mcxc', 'orca', 'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl'
+    )
 _filenames = {
     'abell': 'abell/aco1989_ned.tbl',
     'act-dr4': 'actpol/E-D56Clusters.fits',
     'act-dr5': 'advact/DR5_cluster-catalog_v1.1.fits',
+    'codex': 'codex/J_A+A_638_A114_catalog.dat.gz.fits.gz',
     'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
     'hecs2013': 'hecs/2013/data.fits',
     'madcows': 'madcows/wise_panstarrs.txt',
@@ -31,13 +33,15 @@ _filenames = {
     'psz2': 'planck/PSZ-2015/HFI_PCCS_SZ-union_R2.08.fits',
     'redmapper': 'redmapper/redmapper_dr8_public_v6.3_catalog.fits',
     'spt-sz': 'spt/bleem2015.txt',
-    'whl': 'whl/whl2015.fits'}
+    'whl': 'whl/whl2015.fits'
+    }
 
 # the user may choose to modify these
 columns = {
     'abell': 'Object Name,RA(deg),DEC(deg),Redshift',
     'act-dr4': 'name,RADeg,decDeg,z',
     'act-dr5': 'name,RADeg,decDeg,redshift',
+    'codex': 'CODEX,RAdeg,DEdeg,z',
     'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
     'hecs2013': 'Name,RAJ2000,DEJ2000,z',
     'madcows': 'Cluster,Rahms,Dechms,Photz',
@@ -48,11 +52,13 @@ columns = {
     'psz2': 'NAME,RA,DEC,REDSHIFT',
     'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
     'spt-sz': 'SPT,RAdeg,DEdeg,z',
-    'whl': 'WHL,RAJ2000,DEJ2000,zph'}
+    'whl': 'WHL,RAJ2000,DEJ2000,zph'
+    }
 labels = {
     'abell': 'Abell',
     'act-dr5': 'ACT-DR5',
     'act-dr4': 'ACT-DR4',
+    'codex': 'CODEX',
     'gmbcg': 'GMBCG',
     'hecs2013': 'HeCS',
     'hecs2016': 'HeCS-SZ',
@@ -64,7 +70,8 @@ labels = {
     'psz2': 'PSZ2',
     'redmapper': 'redMaPPer',
     'spt-sz': 'SPT-SZ',
-    'whl': 'WHL'}
+    'whl': 'WHL'
+    }
 references  = {
     # optical
     'abell': 'Abell 1958',
@@ -82,6 +89,7 @@ references  = {
     'psz2': 'Planck Collaboration XXVII 2016',
     'spt-sz': 'Bleem et al. 2015',
     # x-ray
+    'codex': 'Finoguenov et al. 2020',
     'mcxc': 'Piffaretti et al. 2011'
     }
 # all catalogs are here -- this should not be hard-coded
@@ -101,7 +109,7 @@ _path = '{0}'.format(path)
 class Catalog:
 
     def __init__(self, name, catalog=None, indices=None, cols=None,
-                 base_cols=('name','ra','dec','z'), coord_unit='deg'):
+                 base_cols='default', coord_unit='deg'):
         """
         Define a ``Catalog`` object
 
@@ -153,6 +161,8 @@ class Catalog:
         else:
             self.label = self.name
             self.reference = None
+            if base_cols == 'default':
+                base_cols = ('name', 'ra', 'dec', 'z')
             if not isinstance(catalog, Table):
                 catalog = Table(catalog)
         # if necessary, adding an index column should happen before we define
@@ -203,7 +213,7 @@ class Catalog:
         return self
 
     def __next__(self):
-        if self.n <= self.nobj:
+        if self.n < self.nobj:
             i = self.catalog[self.n]
             self.n += 1
             return i
@@ -215,15 +225,42 @@ class Catalog:
         print(_available)
 
     @property
+    def catalog(self):
+        return self._catalog
+
+    @catalog.setter
+    def catalog(self, value):
+        self._catalog = value
+        # reset coords so that they are recalculated
+        self._coords = None
+
+    @property
     def colnames(self):
         return self.catalog.colnames
 
     @property
     def coords(self):
+        """SkyCoord object"""
         if self._coords is None:
             self._coords = SkyCoord(
                 ra=self.ra, dec=self.dec, unit=self.coord_unit, frame='icrs')
+            # reset Galactic coordinates
+            self._galactic = None
         return self._coords
+
+    @property
+    def galactic(self):
+        if self._galactic is None:
+            self._galactic = self.coords.transform_to('galactic')
+        return self._galactic
+
+    @property
+    def l(self):
+        return self.galactic.l
+
+    @property
+    def b(self):
+        return self.galactic.b
 
     def filename(self, relative=False):
         """
