@@ -72,6 +72,24 @@ labels = {
     'spt-sz': 'SPT-SZ',
     'whl': 'WHL'
     }
+masscols = {
+    'abell': None,
+    'act-dr5': 'M500cCal',
+    'act-dr4': 'M500cCal',
+    'codex': 'lambda',
+    'gmbcg': None,
+    'hecs2013': None,
+    'hecs2016': None,
+    'madcows': None,
+    'maxbcg': None,
+    'mcxc': 'M500',
+    'orca': None,
+    'psz1': 'MSZ',
+    'psz2': 'MSZ',
+    'redmapper': 'LAMBDA_CHISQ',
+    'spt-sz': 'M500c',
+    'whl': None
+    }
 references  = {
     # optical
     'abell': 'Abell 1958',
@@ -107,9 +125,14 @@ _path = '{0}'.format(path)
 
 
 class Catalog:
+    """Catalog object
+    
+    The following attributes are defined at initialization:
+
+    """
 
     def __init__(self, name, catalog=None, indices=None, cols=None,
-                 base_cols='default', coord_unit='deg'):
+                 base_cols='default', masscol=None, coord_unit='deg'):
         """
         Define a ``Catalog`` object
 
@@ -129,6 +152,9 @@ class Catalog:
             not given, all columns are returned.
         base_cols : list of str (optional)
             column names for name, ra, dec, and redshift, in that order
+        masscol : str
+            name of column containing mass or mass-like quantity of interest
+            (e.g., luminosity). 
 
         """
         if not isinstance(name, six.string_types):
@@ -158,6 +184,7 @@ class Catalog:
             else:
                 catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
             base_cols = columns[self.name].split(',')
+            self.masscol = masscol if masscol is None else masscols[name]
         else:
             self.label = self.name
             self.reference = None
@@ -165,6 +192,10 @@ class Catalog:
                 base_cols = ('name', 'ra', 'dec', 'z')
             if not isinstance(catalog, Table):
                 catalog = Table(catalog)
+            self.masscol = masscol
+        if self.masscol is not None and self.masscol not in catalog.colnames:
+            raise KeyError(f'masscol {self.masscol} not in catalog')
+        
         # if necessary, adding an index column should happen before we define
         # which columns to return
         self.base_cols = base_cols
@@ -181,6 +212,8 @@ class Catalog:
             cols = catalog.colnames
         elif isinstance(cols, six.string_types):
             cols = cols.split(',')
+        if self.masscol is not None and self.masscol not in cols:
+            cols.append(self.masscol)
         if indices is None:
             indices = np.ones(catalog[cols[0]].size, dtype=bool)
         catalog = catalog[cols][indices]
@@ -192,6 +225,7 @@ class Catalog:
             err = f'at least one of base_cols {self.base_cols} does not exist.\n' \
                 f'available columns:\n{np.sort(self.catalog.colnames)}'
             raise KeyError(err)
+        self.mass = self.catalog[self.masscol] if self.masscol is not None else None
         self._coords = None
 
     def __repr__(self):
