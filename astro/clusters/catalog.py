@@ -184,7 +184,7 @@ class Catalog:
             else:
                 catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
             base_cols = columns[self.name].split(',')
-            self.masscol = masscol if masscol is None else masscols[name]
+            self.masscol = masscols[name] if masscol is None else masscol
         else:
             self.label = self.name
             self.reference = None
