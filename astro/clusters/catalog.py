@@ -132,7 +132,8 @@ class Catalog:
     """
 
     def __init__(self, name, catalog=None, indices=None, cols=None,
-                 base_cols='default', masscol=None, coord_unit='deg'):
+                 label=None, base_cols='default', masscol=None,
+                 coord_unit='deg'):
         """
         Define a ``Catalog`` object
 
@@ -169,24 +170,28 @@ class Catalog:
         self._indices = indices
         self._cols = cols
         if name in _available:
-            self.label = labels[self.name]
+            self.label = labels[self.name] if label is None else label
             self.reference = references[self.name]
             fname = self.filename()
             # load. Some may have special formats
-            if self.name in ('madcows','spt-sz'):
-                catalog = ascii.read(fname, format='cds')
-            elif self.name == 'abell':
-                catalog = ascii.read(fname, format='ipac')
-                # fill masked elements
-                catalog = catalog.filled()
-                #noz = (data[columns[data][3]].values == 1e20)
-                #data[noz] = -1
+            if catalog is None:
+                if self.name in ('madcows','spt-sz'):
+                    catalog = ascii.read(fname, format='cds')
+                elif self.name == 'abell':
+                    catalog = ascii.read(fname, format='ipac')
+                    # fill masked elements
+                    catalog = catalog.filled()
+                    #noz = (data[columns[data][3]].values == 1e20)
+                    #data[noz] = -1
+                else:
+                    catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
             else:
-                catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
-            base_cols = columns[self.name].split(',')
+                catalog = Table(catalog)
+            base_cols = columns[self.name] if base_cols in (None, 'default') \
+                else base_cols
             self.masscol = masscols[name] if masscol is None else masscol
         else:
-            self.label = self.name
+            self.label = self.name if label is None else label
             self.reference = None
             if base_cols == 'default':
                 base_cols = ('name', 'ra', 'dec', 'z')
@@ -198,7 +203,8 @@ class Catalog:
         
         # if necessary, adding an index column should happen before we define
         # which columns to return
-        self.base_cols = base_cols
+        self.base_cols = base_cols.split(',') if isinstance(base_cols, str) \
+            else base_cols
         try:
             self.nobj = catalog[self.base_cols[-1]].size
         except KeyError:
@@ -226,6 +232,7 @@ class Catalog:
                 f'available columns:\n{np.sort(self.catalog.colnames)}'
             raise KeyError(err)
         self.mass = self.catalog[self.masscol] if self.masscol is not None else None
+        self.size = self.obj.size
         self._coords = None
 
     def __repr__(self):
@@ -240,7 +247,8 @@ class Catalog:
         return f'{msg}\n{self.catalog}'
 
     def __getitem__(self, key):
-        return self.catalog[key]
+        return Catalog(f'{self.name}[{key}]', self.catalog[key],
+                       base_cols=self.base_cols, masscol=self.masscol)
 
     def __iter__(self):
         self.n = 0
@@ -248,8 +256,11 @@ class Catalog:
 
     def __next__(self):
         if self.n < self.nobj:
-            i = self.catalog[self.n]
+            #i = self.catalog[self.n]
+            i = self.__getitem__(self.n)
             self.n += 1
+            # return Catalog(f'{self.name}[{i}]', i, base_cols=self.base_cols,
+            #                masscol=self.masscol)
             return i
         else:
             raise StopIteration
