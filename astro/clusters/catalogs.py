@@ -21,6 +21,14 @@ import sys
 if sys.version_info[0] == 2:
     from itertools import izip as zip
 
+from .catalog import (
+    _available, _filenames, columns, labels, masscols, references)
+
+import warnings
+warnings.warn('the catalogs module has been deprecated since v0.3.1 and' \
+    ' will be removed in v.0.5.0. Prefer the Catalog object API instead',
+    DeprecationWarning)
+
 
 def filename(catalogs, as_dict=True, squeeze=False, relative=False):
     """
@@ -223,7 +231,7 @@ def query(ra, dec, radius=2., unit='arcmin', z=0., cosmo=None,
         radius = np.array(
             [dproj(zi, radius, input_unit=unit, unit='deg') for zi in z])
     if catalogs is None:
-        catalogs = available
+        catalogs = _available
     else:
         try:
             catalogs = catalogs.split(',')
