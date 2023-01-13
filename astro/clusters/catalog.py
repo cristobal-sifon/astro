@@ -179,7 +179,7 @@ class Catalog:
                 elif self.name == 'abell':
                     catalog = ascii.read(fname, format='ipac')
                     # fill masked elements
-                    catalog = catalog.filled()
+                    catalog = catalog.filled(-999)
                     #noz = (data[columns[data][3]].values == 1e20)
                     #data[noz] = -1
                 else:
@@ -223,9 +223,10 @@ class Catalog:
             indices = np.ones(catalog[cols[0]].size, dtype=bool)
         catalog = catalog[cols][indices]
         self.catalog = catalog
+        # this only tests that the attributes can be accessed
+        # so we raise an issue immediately if they cannot
         try:
-            self.obj, self.ra, self.dec, self.z \
-                = [self.catalog[col].value for col in self.base_cols]
+            self.obj, self.ra, self.dec, self.z
         except KeyError:
             err = f'at least one of base_cols {self.base_cols} does not exist.\n' \
                 f'available columns:\n{np.sort(self.catalog.colnames)}'
@@ -246,8 +247,9 @@ class Catalog:
         return f'{msg}\n{self.catalog}'
 
     def __getitem__(self, key):
-        return Catalog(f'{self.name}[{key}]', self.catalog[key],
-                       base_cols=self.base_cols, masscol=self.masscol)
+        # return Catalog(f'{self.name}[{key}]', self.catalog[key],
+        #                base_cols=self.base_cols, masscol=self.masscol)
+        return self.catalog[key]
 
     def __iter__(self):
         self.n = 0
@@ -305,6 +307,26 @@ class Catalog:
     @property
     def b(self):
         return self.galactic.b
+
+    # base properties
+
+    @property
+    def obj(self):
+        return self.catalog[self.base_cols[0]].value
+
+    @property
+    def ra(self):
+        return self.catalog[self.base_cols[1]].value
+
+    @property
+    def dec(self):
+        return self.catalog[self.base_cols[2]].value
+
+    @property
+    def z(self):
+        return self.catalog[self.base_cols[3]].value
+
+    # methods
 
     def filename(self, relative=False):
         """
