@@ -1,5 +1,4 @@
 """Utility to work with locally-stored cluster catalogs"""
-from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
 from astro import cosmology
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -226,7 +225,7 @@ class Catalog:
         self.catalog = catalog
         try:
             self.obj, self.ra, self.dec, self.z \
-                = [self.catalog[col] for col in self.base_cols]
+                = [self.catalog[col].value for col in self.base_cols]
         except KeyError:
             err = f'at least one of base_cols {self.base_cols} does not exist.\n' \
                 f'available columns:\n{np.sort(self.catalog.colnames)}'
