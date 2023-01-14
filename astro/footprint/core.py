@@ -1,6 +1,6 @@
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
-
+from astropy.table import Table
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Polygon
@@ -8,8 +8,8 @@ from matplotlib.patches import Polygon
 
 class Footprint:
 
-    def __init__(self, name=None, filename=None, format=None, footprint=None,
-                 default_plot_wrap=180):
+    def __init__(self, name, filename=None, format=None, cols=('ra','dec'),
+                 footprint=None, default_plot_wrap=180):
         """
         Parameters
         ----------
@@ -19,14 +19,17 @@ class Footprint:
             
         """
         self.name = name
-        self.filename = filename
-        self.format = format
-        if self.filename is not None:
-            self.file = FootprintFile(self.filename, self.format)
+        if filename is not None:
+            self.file = FootprintFile(filename, format, cols)
             self.footprint = self.file.read()
         else:
             self.footprint = footprint
+        print(self.footprint)
         self.default_plot_wrap = default_plot_wrap
+
+    def __repr__(self):
+        return f'Footprint("{self.name}", filename="{self.file.filename}",' \
+            f' format="{self.file.format}", cols={self.filename.cols})'
 
     #@property
     #def footprint(self):
@@ -116,15 +119,22 @@ class Footprint:
 
 class FootprintFile:
 
-    def __init__(self, filename, format=None):
-        """Initialize footprint file
+    def __init__(self, filename, format=None, cols=('ra','dec')):
+        """Helper class to initialize footprint file
 
         if ``format`` is not provided, it will be guessed from
         ``filename``
         """
+        assert len(cols) == 2
         self.filename = filename
-        self.format = format
-
+        if format is None:
+            format = filename.split('.')[-1].lower()
+        if format not in ('fits', 'hdf5', 'parquet', 'reg') \
+                and format[:5] != 'ascii' and format[:6] != 'pandas':
+            self.format = f'ascii.{format}'
+        else:
+            self.format = format
+        self.cols = cols
 
     def read(self):
         """Only .reg implemented"""
@@ -135,9 +145,19 @@ class FootprintFile:
                 self.format = 'array'
             elif ext == 'reg':
                 self.format = 'reg'
-        if self.format == 'reg':
+        if self.format == 'ascii.csv':
+            footprint = self.read_csv()
+        elif self.format == 'reg':
             footprint = self.read_reg()
+        else:
+            raise NotImplementedError(f'file format {self.format} not implemented')
         return footprint
+
+    def read_csv(self):
+        footprint = Table.read(self.filename, format=self.format)[self.cols]
+        # print(footprint)
+        # raise NotImplementedError(f'file format {self.format} not implemented')
+        return np.transpose(footprint.values)
 
 
     def read_reg(self):

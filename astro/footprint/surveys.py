@@ -21,9 +21,6 @@ for i in (1, 2):
 
 """DES"""
 DES = Footprint(
-    'DES', filename=os.path.join(footprint_path, 'desfootprint.csv'))
+    'DES', filename=os.path.join(footprint_path, 'desfootprint.csv'),
+    cols=('RA','DEC'))
 
-
-"""SPLUS survey"""
-SPLUS = Footprint(
-    'SPLUS', filename=os.path.join(footprint_path, 'S-PLUS_footprint.csv'))
