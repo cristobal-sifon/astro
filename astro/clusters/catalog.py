@@ -205,14 +205,14 @@ class Catalog:
         self.base_cols = base_cols.split(',') if isinstance(base_cols, str) \
             else base_cols
         try:
-            self.nobj = catalog[self.base_cols[-1]].size
+            _nobj = catalog[self.base_cols[-1]].size
         except KeyError:
             err = f'key {self.base_cols[-1]} not found in catalog {name}'
             raise ValueError(err)
         if self.base_cols[0] not in catalog.colnames:
             # add the id column at the beginning
             catalog.add_column(
-                np.arange(self.nobj, dtype=int), 0, self.base_cols[0])
+                np.arange(_nobj, dtype=int), 0, self.base_cols[0])
         if cols is None:
             cols = catalog.colnames
         elif isinstance(cols, six.string_types):
@@ -226,14 +226,15 @@ class Catalog:
         # this only tests that the attributes can be accessed
         # so we raise an issue immediately if they cannot
         try:
-            self.obj, self.ra, self.dec, self.z
+            self.catalog.rename_columns(
+                self.base_cols[:4], ('name', 'ra', 'dec', 'z'))
         except KeyError:
             err = f'at least one of base_cols {self.base_cols} does not exist.\n' \
                 f'available columns:\n{np.sort(self.catalog.colnames)}'
             raise KeyError(err)
         self.mass = self.catalog[self.masscol] if self.masscol is not None else None
-        self.size = self.obj.size
         self._coords = None
+        self._galactic = None
 
     def __repr__(self):
         return f'Catalog("{self.name}", indices={self._indices},' \
@@ -287,7 +288,7 @@ class Catalog:
     @property
     def coords(self):
         """SkyCoord object"""
-        if self._coords is None:
+        if self._coords is None or self._coords.size != self.nobj:
             self._coords = SkyCoord(
                 ra=self.ra, dec=self.dec, unit=self.coord_unit, frame='icrs')
             # reset Galactic coordinates
@@ -296,7 +297,7 @@ class Catalog:
 
     @property
     def galactic(self):
-        if self._galactic is None:
+        if self._galactic is None or self._galactic.size != self.ra.size:
             self._galactic = self.coords.transform_to('galactic')
         return self._galactic
 
@@ -312,19 +313,23 @@ class Catalog:
 
     @property
     def obj(self):
-        return self.catalog[self.base_cols[0]].value
+        return self.catalog['name'].value
 
     @property
     def ra(self):
-        return self.catalog[self.base_cols[1]].value
+        return u.Quantity(self.catalog['ra'].value, unit=u.deg)
 
     @property
     def dec(self):
-        return self.catalog[self.base_cols[2]].value
+        return u.Quantity(self.catalog['dec'].value, unit=u.deg)
 
     @property
     def z(self):
-        return self.catalog[self.base_cols[3]].value
+        return self.catalog['z'].value
+
+    @property
+    def size(self):
+        return self.obj.size
 
     # methods
 
