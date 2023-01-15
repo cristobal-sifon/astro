@@ -288,7 +288,7 @@ class Catalog:
     @property
     def coords(self):
         """SkyCoord object"""
-        if self._coords is None or self._coords.size != self.nobj:
+        if self._coords is None or self._coords.size != self.ra.size:
             self._coords = SkyCoord(
                 ra=self.ra, dec=self.dec, unit=self.coord_unit, frame='icrs')
             # reset Galactic coordinates
