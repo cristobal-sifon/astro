@@ -173,7 +173,6 @@ class Catalog:
         else:
             self._ra_unit = self.coord_unit[0]
             self._dec_unit = self.coord_unit[1]
-        print(self.coord_unit, self._ra_unit, self._dec_unit)
         self._indices = indices
         self._cols = cols
         if name in _available:
