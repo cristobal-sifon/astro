@@ -12,7 +12,8 @@ Common astronomical utilities, with a focus on galaxy cluster analyses
 
 
 ## Changelog
-
+* **v0.3.2:**
+    - Bug fix when initializing ``Catalog`` object with hms coordinates
 * **v0.3.0:**
     - Simpler ``Catalog`` API
     - Added Madcows catalog
