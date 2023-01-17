@@ -11,6 +11,7 @@ import os
 import urllib
 import six
 import sys
+import warnings
 
 # these should not be modified
 _available = (
@@ -166,6 +167,13 @@ class Catalog:
             raise ValueError(err)
         self.name = name
         self.coord_unit = coord_unit
+        if isinstance(self.coord_unit, str) or not np.iterable(self.coord_unit):
+            self._ra_unit = self.coord_unit
+            self._dec_unit = self.coord_unit
+        else:
+            self._ra_unit = self.coord_unit[0]
+            self._dec_unit = self.coord_unit[1]
+        print(self.coord_unit, self._ra_unit, self._dec_unit)
         self._indices = indices
         self._cols = cols
         if name in _available:
@@ -225,16 +233,30 @@ class Catalog:
         self.catalog = catalog
         # this only tests that the attributes can be accessed
         # so we raise an issue immediately if they cannot
-        try:
-            self.catalog.rename_columns(
-                self.base_cols[:4], ('name', 'ra', 'dec', 'z'))
-        except KeyError:
-            err = f'at least one of base_cols {self.base_cols} does not exist.\n' \
-                f'available columns:\n{np.sort(self.catalog.colnames)}'
-            raise KeyError(err)
+        # try:
+        # it is quite unlikely that these columns are used for a different purpose
+        default_cols = ['name', 'ra', 'dec', 'z']
+        for col, def_col in zip(self.base_cols, default_cols):
+            if col == def_col:
+                continue
+            if def_col in self.catalog.colnames:
+                wrn = f'column {def_col} already exists but will be overwritten'
+                warnings.warn(wrn)
+                self.catalog.remove_column(def_col)
+            self.catalog.rename_column(col, def_col)
+        # except KeyError:
+        #     err = f'at least one of base_cols {self.base_cols} does not exist.' \
+        #         f' Available columns: {np.sort(self.catalog.colnames)}'
+        #     raise KeyError(err)
         self.mass = self.catalog[self.masscol] if self.masscol is not None else None
         self._coords = None
         self._galactic = None
+        if self._ra_unit == u.hourangle:
+            self._coords = SkyCoord(
+                ra=self.catalog['ra'], dec=self.catalog['dec'],
+                unit=self.coord_unit)
+            self.catalog['ra'] = self._coords.ra.deg
+            self.catalog['dec'] = self._coords.dec.deg
 
     def __repr__(self):
         return f'Catalog("{self.name}", indices={self._indices},' \
@@ -290,7 +312,8 @@ class Catalog:
         """SkyCoord object"""
         if self._coords is None or self._coords.size != self.ra.size:
             self._coords = SkyCoord(
-                ra=self.ra, dec=self.dec, unit=self.coord_unit, frame='icrs')
+                ra=self.catalog['ra'].value, dec=self.catalog['dec'].value,
+                unit='deg', frame='icrs')
             # reset Galactic coordinates
             self._galactic = None
         return self._coords
@@ -317,11 +340,11 @@ class Catalog:
 
     @property
     def ra(self):
-        return u.Quantity(self.catalog['ra'].value, unit=u.deg)
+        return u.Quantity(self.catalog['ra'].value, unit=self._ra_unit)
 
     @property
     def dec(self):
-        return u.Quantity(self.catalog['dec'].value, unit=u.deg)
+        return u.Quantity(self.catalog['dec'].value, unit=self._dec_unit)
 
     @property
     def z(self):

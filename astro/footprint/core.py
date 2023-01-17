@@ -24,7 +24,6 @@ class Footprint:
             self.footprint = self.file.read()
         else:
             self.footprint = footprint
-        print(self.footprint)
         self.default_plot_wrap = default_plot_wrap
 
     def __repr__(self):
