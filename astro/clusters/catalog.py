@@ -271,6 +271,8 @@ class Catalog:
     def __getitem__(self, key):
         # return Catalog(f'{self.name}[{key}]', self.catalog[key],
         #                base_cols=self.base_cols, masscol=self.masscol)
+        if isinstance(key, (str, np.str_)) and key == 'coords':
+            return self.coords
         return self.catalog[key]
 
     def __iter__(self):
