@@ -32,13 +32,14 @@ class SourceCatalog(Table):
         ellipses \
             = [Ellipse((x,y), size*a, size*b, angle=theta)
                for x, y, a, b, theta 
-               in zip(*[self.data[col] for col in (xcol,ycol,acol,bcol,tcol)])]
+               in zip(*[self.__getitem__(col) for col in (xcol,ycol,acol,bcol,tcol)])]
         return ellipses
     
     def patch_collection(self, frame='world', size=5, facecolor='none',
-                         **kwargs):
-        shapes = ellipses(frame=frame, size=size)
-        return PatchCollection(shapes, facecolor=facecolor, **kwargs)
+                         edgecolor='C3', **kwargs):
+        ellipses = self.ellipses(frame=frame, size=size)
+        return PatchCollection(
+            ellipses, facecolor=facecolor, edgecolor=edgecolor, **kwargs)
 
     def plot(self, ax=None, frame='world', size=5, facecolor='none', **kwargs):
         if ax is None:
