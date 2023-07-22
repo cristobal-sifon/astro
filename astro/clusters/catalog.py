@@ -125,7 +125,12 @@ _path = '{0}'.format(path)
 
 
 class Catalog:
-    """Catalog object
+    raise NameError('The Catalog class has been renamed to ClusterCatalog,' \
+                    ' please update your code accordingly.')
+
+
+class ClusterCatalog:
+    """ClusterCatalog object
     
     The following attributes are defined at initialization:
 
