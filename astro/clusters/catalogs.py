@@ -26,7 +26,7 @@ from .catalog import (
 
 import warnings
 warnings.warn('the catalogs module has been deprecated since v0.3.1 and' \
-    ' will be removed in v.0.5.0. Prefer the Catalog object API instead',
+    ' will be removed in v.0.5.0. Prefer the ClusterCatalog object API instead',
     DeprecationWarning)
 
 
