@@ -86,7 +86,7 @@ masscols = {
     'orca': None,
     'psz1': 'MSZ',
     'psz2': 'MSZ',
-    'redmapper': 'LAMBDA_CHISQ',
+    'redmapper': 'LAMBDA',
     'spt-sz': 'M500c',
     'whl': None
     }
@@ -98,7 +98,7 @@ references  = {
     'hecs2016': 'Rines et al. 2016',
     'maxbcg': 'Koester et al. 2007',
     'orca': 'Geach, Murphy & Bower 2011',
-    'redmapper-sdss': 'Rykoff et al. 2014',
+    'redmapper': 'Rykoff et al. 2014',
     'whl': 'Wen, Han & Liu 2012; Wen & Han 2015',
     # sz
     'act-dr4': 'Hilton et al. 2018',
