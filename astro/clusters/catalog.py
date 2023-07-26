@@ -124,11 +124,6 @@ _labels = labels.copy()
 _path = '{0}'.format(path)
 
 
-class Catalog:
-    raise NameError('The Catalog class has been renamed to ClusterCatalog,' \
-                    ' please update your code accordingly.')
-
-
 class ClusterCatalog:
     """ClusterCatalog object
     
@@ -448,3 +443,14 @@ class ClusterCatalog:
         closest = np.min(distances, axis=0)
         matches = (closest <= radius)
         return self.catalog[matches]
+
+
+class Catalog(ClusterCatalog):
+    """Deprecated since v0.4.0. Please use ClusterCatalog instead"""
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            'The Catalog class has been renamed to ClusterCatalog,' \
+            ' please update your code accordingly.',
+            DeprecationWarning)
+        super().__init__(*args, **kwargs)
