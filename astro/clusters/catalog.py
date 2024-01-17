@@ -19,7 +19,7 @@ _available = (
     'maxbcg', 'mcxc', 'orca', 'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl'
     )
 _filenames = {
-    'abell': 'abell/aco1989_ned.tbl',
+    'abell': 'abell/aco1989.csv',
     'act-dr4': 'actpol/E-D56Clusters.fits',
     'act-dr5': 'advact/DR5_cluster-catalog_v1.1.fits',
     'codex': 'codex/J_A+A_638_A114_catalog.dat.gz.fits.gz',
@@ -38,7 +38,8 @@ _filenames = {
 
 # the user may choose to modify these
 columns = {
-    'abell': 'Object Name,RA(deg),DEC(deg),Redshift',
+    #'abell': 'Object Name,RA(deg),DEC(deg),Redshift',
+    'abell': 'name,_RAJ2000,_DEJ2000,z',
     'act-dr4': 'name,RADeg,decDeg,z',
     'act-dr5': 'name,RADeg,decDeg,redshift',
     'codex': 'CODEX,RAdeg,DEdeg,z',
@@ -92,7 +93,7 @@ masscols = {
     }
 references  = {
     # optical
-    'abell': 'Abell 1958',
+    'abell': 'Abell, Corwin & Olowin 1989',
     'gmbcg': 'Hao et al. 2010',
     'hecs2013': 'Rines et al. 2013',
     'hecs2016': 'Rines et al. 2016',
@@ -126,7 +127,7 @@ _path = '{0}'.format(path)
 
 class ClusterCatalog:
     """ClusterCatalog object
-    
+
     The following attributes are defined at initialization:
 
     """
@@ -184,11 +185,11 @@ class ClusterCatalog:
                 if self.name in ('madcows','spt-sz'):
                     catalog = ascii.read(fname, format='cds')
                 elif self.name == 'abell':
-                    catalog = ascii.read(fname, format='ipac')
-                    # fill masked elements
-                    catalog = catalog.filled(-999)
-                    #noz = (data[columns[data][3]].values == 1e20)
-                    #data[noz] = -1
+                    catalog = ascii.read(fname, format='basic', delimiter=';')
+                    catalog['m_IDnum'][catalog['m_IDnum'].mask] = ''
+                    catalog['name'] = [''.join([col['Prefix'],str(col['IDnum']),str(col['m_IDnum'])]) for col in catalog]
+                    catalog.remove_columns(['Prefix', 'IDnum', 'm_IDnum'])
+                    catalog = catalog.filled(-99)
                 else:
                     catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
             else:
@@ -206,7 +207,7 @@ class ClusterCatalog:
             self.masscol = masscol
         if self.masscol is not None and self.masscol not in catalog.colnames:
             raise KeyError(f'masscol {self.masscol} not in catalog')
-        
+
         # if necessary, adding an index column should happen before we define
         # which columns to return
         self.base_cols = base_cols.split(',') if isinstance(base_cols, str) \
@@ -454,3 +455,20 @@ class Catalog(ClusterCatalog):
             ' please update your code accordingly.',
             DeprecationWarning)
         super().__init__(*args, **kwargs)
+
+
+Abell = ClusterCatalog('abell')
+ACTDR4 = ClusterCatalog('act-dr4')
+ACTDR5 = ClusterCatalog('act-dr5')
+CODEX = ClusterCatalog('codex')
+GMBCG = ClusterCatalog('gmbcg')
+HECS = ClusterCatalog('hecs2013')
+MADCOWS = ClusterCatalog('madcows')
+MAXBCG  = ClusterCatalog('maxbcg')
+MCXC = ClusterCatalog('mcxc')
+ORCA = ClusterCatalog('orca')
+PSZ1 = ClusterCatalog('psz1')
+PSZ2 = ClusterCatalog('psz2')
+Redmapper = ClusterCatalog('redmapper')
+SPTSZ = ClusterCatalog('spt-sz')
+WHL = ClusterCatalog('whl')

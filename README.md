@@ -2,7 +2,7 @@
 
 Common astronomical utilities, with a focus on galaxy cluster analyses
 
-(c) Cristóbal Sifón, 2013-2022
+(c) Cristóbal Sifón, 2013-2024
 
 ---
 
@@ -12,6 +12,11 @@ Common astronomical utilities, with a focus on galaxy cluster analyses
 
 
 ## Changelog
+* **v0.5.0:**
+    - Updated Abell catalog to have richness class "Rich"
+    - Created `ClusterCatalog` objects for direct import for all catalogs available by default
+* **v0.4.0:**
+    - `Catalog` class replaced by `clusters.ClusterCatalog` and `catalog.SourceCatalog`
 * **v0.3.2:**
     - Bug fix when initializing ``Catalog`` object with hms coordinates
 * **v0.3.0:**
