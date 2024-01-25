@@ -10,13 +10,25 @@ class Footprint:
 
     def __init__(self, name, filename=None, format=None, cols=('ra','dec'),
                  footprint=None, default_plot_wrap=180):
-        """
+        """Footprint object
+
+        .. note::
+
+        Either ``filename```or ``footprint`` must be provided. See descriptions below
+
         Parameters
         ----------
         name : str, optional
             arbitrary name
-        file : str, optional
-            
+        filename : str, optional
+            name of the file containing the footprint polygon, one coordinate per line.
+        format : str, optional
+            a str understood as a format by ``astropy.table``
+        cols : two strings, optional
+            names of the ra,dec columns in ``filename``
+        footprint : list of np.ndarrays
+            each element of the list should be a polygon. A footprint may contain
+            more than one disjoint polygon
         """
         self.name = name
         if filename is not None:
