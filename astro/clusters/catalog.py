@@ -1,4 +1,5 @@
 """Utility to work with locally-stored cluster catalogs"""
+
 from astro import cosmology
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -15,114 +16,139 @@ import warnings
 
 # these should not be modified
 _available = (
-    'abell', 'act-dr4', 'act-dr5', 'codex', 'gmbcg', 'hecs2013', 'madcows',
-    'maxbcg', 'mcxc', 'orca', 'psz1', 'psz2', 'redmapper', 'spt-sz', 'whl'
-    )
+    "abell",
+    "act-dr4",
+    "act-dr5",
+    "codex",
+    "erass1",
+    "gmbcg",
+    "hecs2013",
+    "madcows",
+    "maxbcg",
+    "mcxc",
+    "orca",
+    "psz1",
+    "psz2",
+    "redmapper",
+    "spt-ecs",
+    "spt-sz",
+    "whl",
+)
 _filenames = {
-    'abell': 'abell/aco1989.csv',
-    'act-dr4': 'actpol/E-D56Clusters.fits',
-    'act-dr5': 'advact/DR5_cluster-catalog_v1.1.fits',
-    'codex': 'codex/J_A+A_638_A114_catalog.dat.gz.fits.gz',
-    'gmbcg': 'gmbcg/GMBCG_SDSS_DR7_PUB.fit',
-    'hecs2013': 'hecs/2013/data.fits',
-    'madcows': 'madcows/wise_panstarrs.txt',
-    'maxbcg': 'maxbcg/maxBCG.fits',
-    'mcxc': 'mcxc/mcxc.fits',
-    'orca': 'orca/fullstripe82.fits',
-    'psz1': 'planck/PSZ-2013/PLCK-DR1-SZ/COM_PCCS_SZ-union_R1.11.fits',
-    'psz2': 'planck/PSZ-2015/HFI_PCCS_SZ-union_R2.08.fits',
-    'redmapper': 'redmapper/redmapper_dr8_public_v6.3_catalog.fits',
-    'spt-sz': 'spt/bleem2015.txt',
-    'whl': 'whl/whl2015.fits'
-    }
+    "abell": "abell/aco1989.txt",
+    "act-dr4": "actpol/E-D56Clusters.fits",
+    "act-dr5": "advact/DR5_cluster-catalog_v1.1.fits",
+    "codex": "codex/J_A+A_638_A114_catalog.dat.gz.fits.gz",
+    "erass1": "erosita/erass1cl_primary_v3.2.fits.tgz",
+    "gmbcg": "gmbcg/GMBCG_SDSS_DR7_PUB.fit",
+    "hecs2013": "hecs/2013/data.fits",
+    "madcows": "madcows/wise_panstarrs.txt",
+    "maxbcg": "maxBCG/maxbcg.fits",
+    "mcxc": "mcxc/mcxc.fits",
+    "orca": "orca/fullstripe82.fits",
+    "psz1": "planck/PSZ-2013/PLCK-DR1-SZ/COM_PCCS_SZ-union_R1.11.fits",
+    "psz2": "planck/PSZ-2015/HFI_PCCS_SZ-union_R2.08.fits",
+    "redmapper": "redmapper/redmapper_dr8_public_v6.3_catalog.fits",
+    "spt-ecs": "spt/sptecs_catalog_oct919.fits",
+    "spt-sz": "spt/2500d_cluster_sample_Bocquet19.fits",
+    "whl": "whl/whl2015.fits",
+}
 
 # the user may choose to modify these
 columns = {
-    #'abell': 'Object Name,RA(deg),DEC(deg),Redshift',
-    'abell': 'name,_RAJ2000,_DEJ2000,z',
-    'act-dr4': 'name,RADeg,decDeg,z',
-    'act-dr5': 'name,RADeg,decDeg,redshift',
-    'codex': 'CODEX,RAdeg,DEdeg,z',
-    'gmbcg': 'OBJID,RA,DEC,PHOTOZ',
-    'hecs2013': 'Name,RAJ2000,DEJ2000,z',
-    'madcows': 'Cluster,Rahms,Dechms,Photz',
-    'maxbcg': 'none,RAJ2000,DEJ2000,zph',
-    'mcxc': 'MCXC,RAdeg,DEdeg,z',
-    'orca': 'ID,ra_bcg,dec_bcg,redshift',
-    'psz1': 'NAME,RA,DEC,REDSHIFT',
-    'psz2': 'NAME,RA,DEC,REDSHIFT',
-    'redmapper': 'NAME,RA,DEC,Z_LAMBDA',
-    'spt-sz': 'SPT,RAdeg,DEdeg,z',
-    'whl': 'WHL,RAJ2000,DEJ2000,zph'
-    }
+    "abell": "name,RA,Dec,z",
+    "act-dr4": "name,RADeg,decDeg,z",
+    "act-dr5": "name,RADeg,decDeg,redshift",
+    "codex": "CODEX,RAdeg,DEdeg,z",
+    "erass1": "NAME,RA,DEC,BEST_Z",
+    "gmbcg": "OBJID,RA,DEC,PHOTOZ",
+    "hecs2013": "Name,RAJ2000,DEJ2000,z",
+    "madcows": "Cluster,Rahms,Dechms,Photz",
+    "maxbcg": "none,RAJ2000,DEJ2000,zph",
+    "mcxc": "MCXC,RAdeg,DEdeg,z",
+    "orca": "ID,ra_bcg,dec_bcg,redshift",
+    "psz1": "NAME,RA,DEC,REDSHIFT",
+    "psz2": "NAME,RA,DEC,REDSHIFT",
+    "redmapper": "NAME,RA,DEC,Z_LAMBDA",
+    "spt-ecs": "SPT_ID,RA,DEC,REDSHIFT",
+    "spt-sz": "SPT_ID,RA,DEC,REDSHIFT",
+    "whl": "WHL,RAJ2000,DEJ2000,zph",
+}
 labels = {
-    'abell': 'Abell',
-    'act-dr5': 'ACT-DR5',
-    'act-dr4': 'ACT-DR4',
-    'codex': 'CODEX',
-    'gmbcg': 'GMBCG',
-    'hecs2013': 'HeCS',
-    'hecs2016': 'HeCS-SZ',
-    'madcows': 'MaDCoWS',
-    'maxbcg': 'maxBCG',
-    'mcxc': 'MCXC',
-    'orca': 'ORCA',
-    'psz1': 'PSZ1',
-    'psz2': 'PSZ2',
-    'redmapper': 'redMaPPer',
-    'spt-sz': 'SPT-SZ',
-    'whl': 'WHL'
-    }
+    "abell": "Abell",
+    "act-dr5": "ACT-DR5",
+    "act-dr4": "ACT-DR4",
+    "codex": "CODEX",
+    "erass1": "eRASS1",
+    "gmbcg": "GMBCG",
+    "hecs2013": "HeCS",
+    "hecs2016": "HeCS-SZ",
+    "madcows": "MaDCoWS",
+    "maxbcg": "maxBCG",
+    "mcxc": "MCXC",
+    "orca": "ORCA",
+    "psz1": "PSZ1",
+    "psz2": "PSZ2",
+    "redmapper": "redMaPPer",
+    "spt-ecs": "SPT-ECS",
+    "spt-sz": "SPT-SZ",
+    "whl": "WHL",
+}
 masscols = {
-    'abell': None,
-    'act-dr5': 'M500cCal',
-    'act-dr4': 'M500cCal',
-    'codex': 'lambda',
-    'gmbcg': None,
-    'hecs2013': None,
-    'hecs2016': None,
-    'madcows': None,
-    'maxbcg': None,
-    'mcxc': 'M500',
-    'orca': None,
-    'psz1': 'MSZ',
-    'psz2': 'MSZ',
-    'redmapper': 'LAMBDA',
-    'spt-sz': 'M500c',
-    'whl': None
-    }
-references  = {
+    "abell": None,
+    "act-dr5": "M500cCal",
+    "act-dr4": "M500cCal",
+    "codex": "lambda",
+    "erass1": "M500",
+    "gmbcg": None,
+    "hecs2013": None,
+    "hecs2016": None,
+    "madcows": None,
+    "maxbcg": None,
+    "mcxc": "M500",
+    "orca": None,
+    "psz1": None,
+    "psz2": "MSZ",
+    "redmapper": "LAMBDA",
+    "spt-ecs": "M500",
+    "spt-sz": "M500",
+    "whl": None,
+}
+references = {
     # optical
-    'abell': 'Abell, Corwin & Olowin 1989',
-    'gmbcg': 'Hao et al. 2010',
-    'hecs2013': 'Rines et al. 2013',
-    'hecs2016': 'Rines et al. 2016',
-    'maxbcg': 'Koester et al. 2007',
-    'orca': 'Geach, Murphy & Bower 2011',
-    'redmapper': 'Rykoff et al. 2014',
-    'whl': 'Wen, Han & Liu 2012; Wen & Han 2015',
+    "abell": "Abell, Corwin & Olowin 1989",
+    "gmbcg": "Hao et al. 2010",
+    "hecs2013": "Rines et al. 2013",
+    "hecs2016": "Rines et al. 2016",
+    "madcows": "Gonzalez et al. 2019",
+    "maxbcg": "Koester et al. 2007",
+    "orca": "Geach, Murphy & Bower 2011",
+    "redmapper": "Rykoff et al. 2014",
+    "whl": "Wen, Han & Liu 2012; Wen & Han 2015",
     # sz
-    'act-dr4': 'Hilton et al. 2018',
-    'act-dr5': 'Hilton et al. 2021',
-    'psz1': 'Planck Collaboration XXIX 2014',
-    'psz2': 'Planck Collaboration XXVII 2016',
-    'spt-sz': 'Bleem et al. 2015',
+    "act-dr4": "Hilton et al. 2018",
+    "act-dr5": "Hilton et al. 2021",
+    "psz1": "Planck Collaboration XXIX 2014",
+    "psz2": "Planck Collaboration XXVII 2016",
+    "spt-ecs": "Bleem et al. 2020",
+    "spt-sz": "Bleem et al. 2015",
     # x-ray
-    'codex': 'Finoguenov et al. 2020',
-    'mcxc': 'Piffaretti et al. 2011'
-    }
+    "codex": "Finoguenov et al. 2020",
+    "erass1": "Bulbul et al. 2024",
+    "mcxc": "Piffaretti et al. 2011",
+}
 # all catalogs are here -- this should not be hard-coded
-if 'DATA' in os.environ:
-    path = os.environ['DATA']
-elif 'DOCS' in os.environ:
-    path = os.environ['DOCS']
+if "DATA" in os.environ:
+    path = os.environ["DATA"]
+elif "DOCS" in os.environ:
+    path = os.environ["DOCS"]
 else:
-    path = os.path.join(os.environ['HOME'], 'Documents')
-path = os.path.join(path, 'catalogs')
+    path = os.path.join(os.environ["HOME"], "Documents")
+path = os.path.join(path, "catalogs")
 # these serve to restore the above attributes if necessary
 _columns = columns.copy()
 _labels = labels.copy()
-_path = '{0}'.format(path)
+_path = "{0}".format(path)
 
 
 class ClusterCatalog:
@@ -132,9 +158,17 @@ class ClusterCatalog:
 
     """
 
-    def __init__(self, name, catalog=None, indices=None, cols=None,
-                 label=None, base_cols='default', masscol=None,
-                 coord_unit='deg'):
+    def __init__(
+        self,
+        name,
+        catalog=None,
+        indices=None,
+        cols=None,
+        label=None,
+        base_cols="default",
+        masscol=None,
+        coord_unit="deg",
+    ):
         """
         Define a ``Catalog`` object
 
@@ -156,15 +190,16 @@ class ClusterCatalog:
             column names for name, ra, dec, and redshift, in that order
         masscol : str
             name of column containing mass or mass-like quantity of interest
-            (e.g., luminosity). 
+            (e.g., luminosity).
 
         """
         if not isinstance(name, six.string_types):
-            msg = 'argument name must be a string'
+            msg = "argument name must be a string"
             raise TypeError(msg)
         if catalog is None and name not in _available:
-            err = f'catalog {name} not available.' \
-                f' Available catalogs are {_available}'
+            err = (
+                f"catalog {name} not available." f" Available catalogs are {_available}"
+            )
             raise ValueError(err)
         self.name = name
         self.coord_unit = coord_unit
@@ -182,49 +217,46 @@ class ClusterCatalog:
             fname = self.filename()
             # load. Some may have special formats
             if catalog is None:
-                if self.name in ('madcows','spt-sz'):
-                    catalog = ascii.read(fname, format='cds')
-                elif self.name == 'abell':
-                    catalog = ascii.read(fname, format='basic', delimiter=';')
-                    catalog['m_IDnum'][catalog['m_IDnum'].mask] = ''
-                    catalog['name'] = [''.join([col['Prefix'],str(col['IDnum']),str(col['m_IDnum'])]) for col in catalog]
-                    catalog.remove_columns(['Prefix', 'IDnum', 'm_IDnum'])
-                    catalog = catalog.filled(-99)
+                if self.name in ("madcows",):
+                    catalog = ascii.read(fname, format="cds")
+                elif self.name == "abell":
+                    catalog = ascii.read(fname, format="csv")
                 else:
                     catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
             else:
                 catalog = Table(catalog)
-            base_cols = columns[self.name] if base_cols in (None, 'default') \
-                else base_cols
+            base_cols = (
+                columns[self.name] if base_cols in (None, "default") else base_cols
+            )
             self.masscol = masscols[name] if masscol is None else masscol
         else:
             self.label = self.name if label is None else label
             self.reference = None
-            if base_cols == 'default':
-                base_cols = ('name', 'ra', 'dec', 'z')
+            if base_cols == "default":
+                base_cols = ("name", "ra", "dec", "z")
             if not isinstance(catalog, Table):
                 catalog = Table(catalog)
             self.masscol = masscol
         if self.masscol is not None and self.masscol not in catalog.colnames:
-            raise KeyError(f'masscol {self.masscol} not in catalog')
+            raise KeyError(f"masscol {self.masscol} not in catalog")
 
         # if necessary, adding an index column should happen before we define
         # which columns to return
-        self.base_cols = base_cols.split(',') if isinstance(base_cols, str) \
-            else base_cols
+        self.base_cols = (
+            base_cols.split(",") if isinstance(base_cols, str) else base_cols
+        )
         try:
             _nobj = catalog[self.base_cols[-1]].size
         except KeyError:
-            err = f'key {self.base_cols[-1]} not found in catalog {name}'
+            err = f"key {self.base_cols[-1]} not found in catalog {name}"
             raise ValueError(err)
         if self.base_cols[0] not in catalog.colnames:
             # add the id column at the beginning
-            catalog.add_column(
-                np.arange(_nobj, dtype=int), 0, self.base_cols[0])
+            catalog.add_column(np.arange(_nobj, dtype=int), 0, self.base_cols[0])
         if cols is None:
             cols = catalog.colnames
         elif isinstance(cols, six.string_types):
-            cols = cols.split(',')
+            cols = cols.split(",")
         if self.masscol is not None and self.masscol not in cols:
             cols.append(self.masscol)
         if indices is None:
@@ -235,12 +267,12 @@ class ClusterCatalog:
         # so we raise an issue immediately if they cannot
         # try:
         # it is quite unlikely that these columns are used for a different purpose
-        default_cols = ['name', 'ra', 'dec', 'z']
+        default_cols = ["name", "ra", "dec", "z"]
         for col, def_col in zip(self.base_cols, default_cols):
             if col == def_col:
                 continue
             if def_col in self.catalog.colnames:
-                wrn = f'column {def_col} already exists but will be overwritten'
+                wrn = f"column {def_col} already exists but will be overwritten"
                 warnings.warn(wrn)
                 self.catalog.remove_column(def_col)
             self.catalog.rename_column(col, def_col)
@@ -253,26 +285,28 @@ class ClusterCatalog:
         self._galactic = None
         if self._ra_unit == u.hourangle:
             self._coords = SkyCoord(
-                ra=self.catalog['ra'], dec=self.catalog['dec'],
-                unit=self.coord_unit)
-            self.catalog['ra'] = self._coords.ra.deg
-            self.catalog['dec'] = self._coords.dec.deg
+                ra=self.catalog["ra"], dec=self.catalog["dec"], unit=self.coord_unit
+            )
+            self.catalog["ra"] = self._coords.ra.deg
+            self.catalog["dec"] = self._coords.dec.deg
 
     def __repr__(self):
-        return f'Catalog("{self.name}", indices={self._indices},' \
-            f' cols={self._cols})\n' \
-            f'{self.catalog}'
+        return (
+            f'Catalog("{self.name}", indices={self._indices},'
+            f" cols={self._cols})\n"
+            f"{self.catalog}"
+        )
 
     def __str__(self):
-        msg = f'{self.label} catalog'
+        msg = f"{self.label} catalog"
         if self.reference is not None:
-            msg = f'{msg} ({self.reference})'
-        return f'{msg}\n{self.catalog}'
+            msg = f"{msg} ({self.reference})"
+        return f"{msg}\n{self.catalog}"
 
     def __getitem__(self, key):
         # return Catalog(f'{self.name}[{key}]', self.catalog[key],
         #                base_cols=self.base_cols, masscol=self.masscol)
-        if isinstance(key, (str, np.str_)) and key == 'coords':
+        if isinstance(key, (str, np.str_)) and key == "coords":
             return self.coords
         return self.catalog[key]
 
@@ -282,7 +316,7 @@ class ClusterCatalog:
 
     def __next__(self):
         if self.n < self.nobj:
-            #i = self.catalog[self.n]
+            # i = self.catalog[self.n]
             i = self.__getitem__(self.n)
             self.n += 1
             # return Catalog(f'{self.name}[{i}]', i, base_cols=self.base_cols,
@@ -314,8 +348,11 @@ class ClusterCatalog:
         """SkyCoord object"""
         if self._coords is None or self._coords.size != self.ra.size:
             self._coords = SkyCoord(
-                ra=self.catalog['ra'].value, dec=self.catalog['dec'].value,
-                unit='deg', frame='icrs')
+                ra=self.catalog["ra"].value,
+                dec=self.catalog["dec"].value,
+                unit="deg",
+                frame="icrs",
+            )
             # reset Galactic coordinates
             self._galactic = None
         return self._coords
@@ -323,7 +360,7 @@ class ClusterCatalog:
     @property
     def galactic(self):
         if self._galactic is None or self._galactic.size != self.ra.size:
-            self._galactic = self.coords.transform_to('galactic')
+            self._galactic = self.coords.transform_to("galactic")
         return self._galactic
 
     @property
@@ -338,19 +375,19 @@ class ClusterCatalog:
 
     @property
     def obj(self):
-        return self.catalog['name'].value
+        return self.catalog["name"].value
 
     @property
     def ra(self):
-        return u.Quantity(self.catalog['ra'].value, unit=self._ra_unit)
+        return u.Quantity(self.catalog["ra"].value, unit=self._ra_unit)
 
     @property
     def dec(self):
-        return u.Quantity(self.catalog['dec'].value, unit=self._dec_unit)
+        return u.Quantity(self.catalog["dec"].value, unit=self._dec_unit)
 
     @property
     def z(self):
-        return self.catalog['z'].value
+        return self.catalog["z"].value
 
     @property
     def size(self):
@@ -378,15 +415,17 @@ class ClusterCatalog:
         if relative:
             fnames = _filenames.copy()
         if not relative:
-            fnames = {key: os.path.join(path, filename)
-                      for key, filename in _filenames.items()}
+            fnames = {
+                key: os.path.join(path, filename)
+                for key, filename in _filenames.items()
+            }
         return fnames[self.name]
 
     # @staticmethod
     # def download(filename):
     #     """
     #     Download a catalog from the web
-    #     
+    #
     #     Need to post them somewhere or write down the original website
 
     #     """
@@ -401,12 +440,20 @@ class ClusterCatalog:
     #     urllib.urlretrieve(online, local)
     #     return
 
-    def _crossmatch(self, catalog, radius=1*u.arcmin, z=0, cosmo=None, z_width=None):
+    def _crossmatch(self, catalog, radius=1 * u.arcmin, z=0, cosmo=None, z_width=None):
         assert isinstance(catalog, Catalog)
         raise NotImplementedError
 
-    def query(self, coords=None, ra=None, dec=None, radius=1*u.arcmin, z=0,
-              cosmo=None, z_width=None):
+    def query(
+        self,
+        coords=None,
+        ra=None,
+        dec=None,
+        radius=1 * u.arcmin,
+        z=0,
+        cosmo=None,
+        z_width=None,
+    ):
         """
         Query the catalog for specific coordinates
 
@@ -434,15 +481,15 @@ class ClusterCatalog:
         assert isinstance(radius, u.Quantity)
         if coords is None:
             if ra is None or dec is None:
-                raise ValueError('Need to specify either ra, dec or coords')
-            coords = SkyCoord(ra=ra, dec=dec, unit='deg', frame='icrs')
+                raise ValueError("Need to specify either ra, dec or coords")
+            coords = SkyCoord(ra=ra, dec=dec, unit="deg", frame="icrs")
         assert isinstance(coords, SkyCoord)
-        distances = self.coords.separation(coords[:,None])
+        distances = self.coords.separation(coords[:, None])
         # matching in physical distance
-        if u.get_physical_type(radius.unit) == 'length':
-            raise NotImplementedError('matching in physical distance not implemented')
+        if u.get_physical_type(radius.unit) == "length":
+            raise NotImplementedError("matching in physical distance not implemented")
         closest = np.min(distances, axis=0)
-        matches = (closest <= radius)
+        matches = closest <= radius
         return self.catalog[matches]
 
 
@@ -451,24 +498,25 @@ class Catalog(ClusterCatalog):
 
     def __init__(self, *args, **kwargs):
         warnings.warn(
-            'The Catalog class has been renamed to ClusterCatalog,' \
-            ' please update your code accordingly.',
-            DeprecationWarning)
+            "The Catalog class has been renamed to ClusterCatalog,"
+            " please update your code accordingly.",
+            DeprecationWarning,
+        )
         super().__init__(*args, **kwargs)
 
 
-Abell = ClusterCatalog('abell')
-ACTDR4 = ClusterCatalog('act-dr4')
-ACTDR5 = ClusterCatalog('act-dr5')
-CODEX = ClusterCatalog('codex')
-GMBCG = ClusterCatalog('gmbcg')
-HECS = ClusterCatalog('hecs2013')
-MADCOWS = ClusterCatalog('madcows')
-MAXBCG  = ClusterCatalog('maxbcg')
-MCXC = ClusterCatalog('mcxc')
-ORCA = ClusterCatalog('orca')
-PSZ1 = ClusterCatalog('psz1')
-PSZ2 = ClusterCatalog('psz2')
-Redmapper = ClusterCatalog('redmapper')
-SPTSZ = ClusterCatalog('spt-sz')
-WHL = ClusterCatalog('whl')
+Abell = ClusterCatalog("abell")
+ACTDR4 = ClusterCatalog("act-dr4")
+ACTDR5 = ClusterCatalog("act-dr5")
+CODEX = ClusterCatalog("codex")
+GMBCG = ClusterCatalog("gmbcg")
+HECS = ClusterCatalog("hecs2013")
+MADCOWS = ClusterCatalog("madcows")
+MAXBCG = ClusterCatalog("maxbcg")
+MCXC = ClusterCatalog("mcxc")
+ORCA = ClusterCatalog("orca")
+PSZ1 = ClusterCatalog("psz1")
+PSZ2 = ClusterCatalog("psz2")
+Redmapper = ClusterCatalog("redmapper")
+SPTSZ = ClusterCatalog("spt-sz")
+WHL = ClusterCatalog("whl")
