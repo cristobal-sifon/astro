@@ -39,7 +39,7 @@ _filenames = {
     "act-dr4": "actpol/E-D56Clusters.fits",
     "act-dr5": "advact/DR5_cluster-catalog_v1.1.fits",
     "codex": "codex/J_A+A_638_A114_catalog.dat.gz.fits.gz",
-    "erass1": "erosita/erass1cl_primary_v3.2.fits.tgz",
+    "erass1": "erosita/erass1cl_primary_v3.2.fits.gz",
     "gmbcg": "gmbcg/GMBCG_SDSS_DR7_PUB.fit",
     "hecs2013": "hecs/2013/data.fits",
     "madcows": "madcows/wise_panstarrs.txt",
