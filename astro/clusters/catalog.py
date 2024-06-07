@@ -19,6 +19,8 @@ _available = (
     "abell",
     "act-dr4",
     "act-dr5",
+    "chances-evol",
+    "chances-lowz",
     "codex",
     "erass1",
     "gmbcg",
@@ -32,12 +34,15 @@ _available = (
     "redmapper",
     "spt-ecs",
     "spt-sz",
+    # "wings",
     "whl",
 )
 _filenames = {
     "abell": "abell/aco1989.txt",
     "act-dr4": "actpol/E-D56Clusters.fits",
     "act-dr5": "advact/DR5_cluster-catalog_v1.1.fits",
+    "chances-evol": "chances/clusters_chances_evolution_20240503.csv",
+    "chances-lowz": "chances/clusters_chances_lowz_20240503.csv",
     "codex": "codex/J_A+A_638_A114_catalog.dat.gz.fits.gz",
     "erass1": "erosita/erass1cl_primary_v3.2.fits.gz",
     "gmbcg": "gmbcg/GMBCG_SDSS_DR7_PUB.fit",
@@ -51,6 +56,7 @@ _filenames = {
     "redmapper": "redmapper/redmapper_dr8_public_v6.3_catalog.fits",
     "spt-ecs": "spt/sptecs_catalog_oct919.fits",
     "spt-sz": "spt/2500d_cluster_sample_Bocquet19.fits",
+    # "wings": ""
     "whl": "whl/whl2015.fits",
 }
 
@@ -59,6 +65,8 @@ columns = {
     "abell": "name,RA,Dec,z",
     "act-dr4": "name,RADeg,decDeg,z",
     "act-dr5": "name,RADeg,decDeg,redshift",
+    "chances-evol": "name,hms,dms,z",
+    "chances-lowz": "name,hms,dms,z",
     "codex": "CODEX,RAdeg,DEdeg,z",
     "erass1": "NAME,RA,DEC,BEST_Z",
     "gmbcg": "OBJID,RA,DEC,PHOTOZ",
@@ -78,6 +86,8 @@ labels = {
     "abell": "Abell",
     "act-dr5": "ACT-DR5",
     "act-dr4": "ACT-DR4",
+    "chances-evol": "CHANCES-Evolution",
+    "chances-lowz": "CHANCES-Lowz",
     "codex": "CODEX",
     "erass1": "eRASS1",
     "gmbcg": "GMBCG",
@@ -98,6 +108,8 @@ masscols = {
     "abell": None,
     "act-dr5": "M500cCal",
     "act-dr4": "M500cCal",
+    "chances-evol": "m200",
+    "chances-lowz": "m200",
     "codex": "lambda",
     "erass1": "M500",
     "gmbcg": None,
@@ -136,6 +148,9 @@ references = {
     "codex": "Finoguenov et al. 2020",
     "erass1": "Bulbul et al. 2024",
     "mcxc": "Piffaretti et al. 2011",
+    # chances
+    "chances-evol": "Sifón et al. 2024",
+    "chances-lowz": "Sifón et al. 2024",
 }
 # all catalogs are here -- this should not be hard-coded
 if "DATA" in os.environ:
@@ -219,7 +234,7 @@ class ClusterCatalog:
             if catalog is None:
                 if self.name in ("madcows",):
                     catalog = ascii.read(fname, format="cds")
-                elif self.name == "abell":
+                elif self.name in ("abell", "chances-evol", "chances-lowz"):
                     catalog = ascii.read(fname, format="csv")
                 else:
                     catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
