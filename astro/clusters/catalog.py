@@ -218,12 +218,6 @@ class ClusterCatalog:
             raise ValueError(err)
         self.name = name
         self.coord_unit = coord_unit
-        if isinstance(self.coord_unit, str) or not np.iterable(self.coord_unit):
-            self._ra_unit = self.coord_unit
-            self._dec_unit = self.coord_unit
-        else:
-            self._ra_unit = self.coord_unit[0]
-            self._dec_unit = self.coord_unit[1]
         self._indices = indices
         self._cols = cols
         if name in _available:
@@ -238,6 +232,9 @@ class ClusterCatalog:
                     catalog = ascii.read(fname, format="csv")
                 else:
                     catalog = Table(getdata(fname, ext=1, ignore_missing_end=True))
+                # when the coordinates come in hms/dms
+                if self.name in ("chances-evol", "chances-lowz"):
+                    self.coord_unit = (u.hourangle, u.deg)
             else:
                 catalog = Table(catalog)
             base_cols = (
@@ -255,6 +252,12 @@ class ClusterCatalog:
         if self.masscol is not None and self.masscol not in catalog.colnames:
             raise KeyError(f"masscol {self.masscol} not in catalog")
 
+        if isinstance(self.coord_unit, str) or not np.iterable(self.coord_unit):
+            self._ra_unit = self.coord_unit
+            self._dec_unit = self.coord_unit
+        else:
+            self._ra_unit = self.coord_unit[0]
+            self._dec_unit = self.coord_unit[1]
         # if necessary, adding an index column should happen before we define
         # which columns to return
         self.base_cols = (
@@ -304,6 +307,8 @@ class ClusterCatalog:
             )
             self.catalog["ra"] = self._coords.ra.deg
             self.catalog["dec"] = self._coords.dec.deg
+        self.catalog["ra"].format = ".5f"
+        self.catalog["dec"].format = ".5f"
 
     def __repr__(self):
         return (
