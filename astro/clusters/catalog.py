@@ -41,8 +41,8 @@ _filenames = {
     "abell": "abell/aco1989.txt",
     "act-dr4": "actpol/E-D56Clusters.fits",
     "act-dr5": "advact/DR5_cluster-catalog_v1.1.fits",
-    "chances-evol": "chances/clusters_chances_evolution_20240503.csv",
-    "chances-lowz": "chances/clusters_chances_lowz_20240503.csv",
+    "chances-evol": "chances/clusters_chances_evolution_20240725.csv",
+    "chances-lowz": "chances/clusters_chances_lowz_20240725.csv",
     "codex": "codex/J_A+A_638_A114_catalog.dat.gz.fits.gz",
     "erass1": "erosita/erass1cl_primary_v3.2.fits.gz",
     "gmbcg": "gmbcg/GMBCG_SDSS_DR7_PUB.fit",
@@ -307,8 +307,9 @@ class ClusterCatalog:
             )
             self.catalog["ra"] = self._coords.ra.deg
             self.catalog["dec"] = self._coords.dec.deg
-        self.catalog["ra"].format = ".5f"
-        self.catalog["dec"].format = ".5f"
+        # print(self._ra_unit)
+        # self.catalog["ra"].format = "%.5f"
+        # self.catalog["dec"].format = "%.5f"
 
     def __repr__(self):
         return (
@@ -335,7 +336,7 @@ class ClusterCatalog:
         return self
 
     def __next__(self):
-        if self.n < self.nobj:
+        if self.n < self.size:
             # i = self.catalog[self.n]
             i = self.__getitem__(self.n)
             self.n += 1
