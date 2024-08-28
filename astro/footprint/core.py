@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 from astropy.table import Table
+from dataclasses import dataclass
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.patches import Polygon
@@ -41,13 +42,16 @@ class Footprint:
             self.file = FootprintFile(filename, format, cols)
             self.footprint = self.file.read()
         else:
+            self.file = DummyFootprintFile()
             self.footprint = footprint
         self.default_plot_wrap = default_plot_wrap
 
     def __repr__(self):
+        if isinstance(self.file, DummyFootprintFile):
+            return f'Footprint("{self.name}", footprint={self.footprint})'
         return (
             f'Footprint("{self.name}", filename="{self.file.filename}",'
-            f' format="{self.file.format}", cols={self.filename.cols})'
+            f' format="{self.file.format}", cols={self.file.cols})'
         )
 
     # @property
@@ -128,6 +132,13 @@ class Footprint:
             for patch in patches:
                 ax.add_patch(patch)
         return patches
+
+
+@dataclass
+class DummyFootprintFile:
+    filename = None
+    format = None
+    cols = None
 
 
 class FootprintFile:
