@@ -195,4 +195,4 @@ class FootprintFile:
                     ra = np.array(line[::2], dtype=float)
                     dec = np.array(line[1::2], dtype=float)
                     footprint.append(np.transpose([ra, dec]))
-        return np.array(footprint)
+        return footprint
