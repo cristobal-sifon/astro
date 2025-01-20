@@ -42,7 +42,7 @@ _filenames = {
     "act-dr4": "actpol/E-D56Clusters.fits",
     "act-dr5": "advact/DR5_cluster-catalog_v1.1.fits",
     "chances-evol": "chances/clusters_chances_evolution_20240725.csv",
-    "chances-lowz": "chances/clusters_chances_lowz_20240725.csv",
+    "chances-lowz": "chances/clusters_chances_lowz_20250120.csv",
     "codex": "codex/J_A+A_638_A114_catalog.dat.gz.fits.gz",
     "erass1": "erosita/erass1cl_primary_v3.2.fits.gz",
     "gmbcg": "gmbcg/GMBCG_SDSS_DR7_PUB.fit",
