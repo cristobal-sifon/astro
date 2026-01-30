@@ -1,17 +1,12 @@
 """Utility to work with locally-stored cluster catalogs"""
 
-from astro import cosmology
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import ascii
 from astropy.io.fits import getdata
 from astropy.table import Table
-from itertools import count
 import numpy as np
 import os
-import urllib
-import six
-import sys
 import warnings
 
 # these should not be modified
@@ -34,6 +29,7 @@ _available = (
     "psz1",
     "psz2",
     "redmapper",
+    "redmapper-dessv",
     "spt-ecs",
     "spt-sz",
     # "wings",
@@ -57,7 +53,8 @@ _filenames = {
     "orca": "orca/fullstripe82.fits",
     "psz1": "planck/PSZ-2013/PLCK-DR1-SZ/COM_PCCS_SZ-union_R1.11.fits",
     "psz2": "planck/PSZ-2015/HFI_PCCS_SZ-union_R2.08.fits",
-    "redmapper": "redmapper/redmapper_dr8_public_v6.3_catalog.fits",
+    "redmapper": "redmapper/sdss/redmapper_dr8_public_v6.3_catalog.fits",
+    "redmapper-dessv": "redmapper/des-sv/cat_sva1.dat",
     "spt-ecs": "spt/sptecs_catalog_oct919.fits",
     "spt-sz": "spt/2500d_cluster_sample_Bocquet19.fits",
     # "wings": ""
@@ -220,7 +217,7 @@ class ClusterCatalog:
             (e.g., luminosity).
 
         """
-        if not isinstance(name, six.string_types):
+        if not isinstance(name, str):
             msg = "argument name must be a string"
             raise TypeError(msg)
         if catalog is None and name not in _available:
@@ -285,7 +282,7 @@ class ClusterCatalog:
             catalog.add_column(np.arange(_nobj, dtype=int), 0, self.base_cols[0])
         if cols is None:
             cols = catalog.colnames
-        elif isinstance(cols, six.string_types):
+        elif isinstance(cols, str):
             cols = cols.split(",")
         if self.masscol is not None and self.masscol not in cols:
             cols.append(self.masscol)
@@ -538,18 +535,18 @@ class Catalog(ClusterCatalog):
         super().__init__(*args, **kwargs)
 
 
-Abell = ClusterCatalog("abell")
-ACTDR4 = ClusterCatalog("act-dr4")
-ACTDR5 = ClusterCatalog("act-dr5")
-CODEX = ClusterCatalog("codex")
-GMBCG = ClusterCatalog("gmbcg")
-HECS = ClusterCatalog("hecs2013")
-MADCOWS = ClusterCatalog("madcows")
-MAXBCG = ClusterCatalog("maxbcg")
-MCXC = ClusterCatalog("mcxc")
-ORCA = ClusterCatalog("orca")
-PSZ1 = ClusterCatalog("psz1")
-PSZ2 = ClusterCatalog("psz2")
-Redmapper = ClusterCatalog("redmapper")
-SPTSZ = ClusterCatalog("spt-sz")
-WHL = ClusterCatalog("whl")
+# Abell = ClusterCatalog("abell")
+# ACTDR4 = ClusterCatalog("act-dr4")
+# ACTDR5 = ClusterCatalog("act-dr5")
+# CODEX = ClusterCatalog("codex")
+# GMBCG = ClusterCatalog("gmbcg")
+# HECS = ClusterCatalog("hecs2013")
+# MADCOWS = ClusterCatalog("madcows")
+# MAXBCG = ClusterCatalog("maxbcg")
+# MCXC = ClusterCatalog("mcxc")
+# ORCA = ClusterCatalog("orca")
+# PSZ1 = ClusterCatalog("psz1")
+# PSZ2 = ClusterCatalog("psz2")
+# Redmapper = ClusterCatalog("redmapper")
+# SPTSZ = ClusterCatalog("spt-sz")
+# WHL = ClusterCatalog("whl")
