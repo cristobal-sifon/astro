@@ -479,6 +479,7 @@ class ClusterCatalog:
         coords=None,
         ra=None,
         dec=None,
+        names=None,
         radius=1 * u.arcmin,
         z=0,
         cosmo=None,
@@ -489,11 +490,14 @@ class ClusterCatalog:
 
         Parameters
         ----------
+        name : array-like, dtype string
+            name(s) to query. In this case, ``radius`` is ignored. Name(s) will be
+            matched against the column given in the first element of ``base_cols``
         coords : ``astropy.coordinates.SkyCoord``
-            coordinates to query
+            coordinates to query. Will be ignored if ``name`` is provided
         ra, dec : array-like
             Right ascension and declination. Will be ignored if ``coords``
-            is provided
+            or ``name`` are provided
         radius : ``astropy.units.Quantity``
             maximum matching radius in angular or physical units
         z : float
@@ -509,17 +513,22 @@ class ClusterCatalog:
             matching objects
         """
         assert isinstance(radius, u.Quantity)
-        if coords is None:
-            if ra is None or dec is None:
-                raise ValueError("Need to specify either ra, dec or coords")
-            coords = SkyCoord(ra=ra, dec=dec, unit="deg", frame="icrs")
-        assert isinstance(coords, SkyCoord)
-        distances = self.coords.separation(coords[:, None])
-        # matching in physical distance
-        if u.get_physical_type(radius.unit) == "length":
-            raise NotImplementedError("matching in physical distance not implemented")
-        closest = np.min(distances, axis=0)
-        matches = closest <= radius
+        if names is not None:
+            matches = np.isin(self.catalog["name"], names)
+        else:
+            if coords is None:
+                if ra is None or dec is None:
+                    raise ValueError("Need to specify either ra, dec or coords")
+                coords = SkyCoord(ra=ra, dec=dec, unit="deg", frame="icrs")
+            assert isinstance(coords, SkyCoord)
+            distances = self.coords.separation(coords[:, None])
+            # matching in physical distance
+            if u.get_physical_type(radius.unit) == "length":
+                raise NotImplementedError(
+                    "matching in physical distance not implemented"
+                )
+            closest = np.min(distances, axis=0)
+            matches = closest <= radius
         return self.catalog[matches]
 
 
