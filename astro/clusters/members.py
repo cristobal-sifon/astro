@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function
-
-import pylab
-import numpy
+from matplotlib import pyplot as plt
+import numpy as np
 
 """
 Galaxy cluster membership selection procedures
@@ -127,12 +125,11 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
             if debug:
                 print('binsize:', binsize, 'kpc')
                 for i in bins:
-                    pylab.axvline(r[i][-1], ls=':', color='b')
+                    plt.axvline(r[i][-1], ls=':', color='b')
         if debug:
             print('Nbins:', len(bins))
         return bins, binsizes
 
-    from itertools import count, izip
     def membership(r, v, bins, maingap=500, maxgap=1000,
                    useabs=True, sigma=False, debug=False):
       """
@@ -143,22 +140,22 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
       """
       Nbins = len(bins)
       members = []
-      limits = numpy.zeros(Nbins)
-      #pylab.plot(r, abs(v), 'ko')
+      limits = np.zeros(Nbins)
+      #plt.plot(r, abs(v), 'ko')
       for i in xrange(Nbins):
         bi = bins[i]
         vi = abs(v[bi])
-        #pylab.axvline(max(r[bi]), ls=':', color='grey')
+        #plt.axvline(max(r[bi]), ls=':', color='grey')
         Ni = len(vi)
         if sigma:
           # maybe should be iterative somehow
-          s = numpy.std(vi)
-          members = numpy.append(members, bi[vi < maxgap*s])
+          s = np.std(vi)
+          members = np.append(members, bi[vi < maxgap*s])
         else:
           bodylimit = None
-          vorder = numpy.argsort(vi)
+          vorder = np.argsort(vi)
           #for j, rj, vj in izip(count(), r[bi][vorder], vi[vorder]):
-              #pylab.annotate(j, xy=(rj, vj), color='r',
+              #plt.annotate(j, xy=(rj, vj), color='r',
                              #ha='center', va='center')
           # the one with the lowest velocity is always a member
           members.append(bi[vorder[0]])
@@ -166,21 +163,21 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
             # the bodylimit is to be found only once per bin
             if not bodylimit:
               if vi[vorder[j]] - vi[vorder[j-1]] < maingap:
-                #pylab.plot(r[bi][vorder[j]], vi[vorder[j]], 'gx', lw=2, ms=10)
+                #plt.plot(r[bi][vorder[j]], vi[vorder[j]], 'gx', lw=2, ms=10)
                 members.append(bi[vorder[j]])
               # if maingap is exceeded, define the body gap
               else:
                 bodylimit = vi[vorder[j-1]]
-                #pylab.plot([min(r[bi]), max(r[bi])],
+                #plt.plot([min(r[bi]), max(r[bi])],
                            #[bodylimit, bodylimit],
                            #ls='--', color='b')
-                #pylab.plot([min(r[bi]), max(r[bi])],
+                #plt.plot([min(r[bi]), max(r[bi])],
                            #[bodylimit+maxgap, bodylimit+maxgap],
                            #ls='-', color='b')
             if bodylimit:
               if vi[vorder[j]] - bodylimit < maxgap:
                 members.append(bi[vorder[j]])
-                #pylab.plot(r[bi][vorder[j]], vi[vorder[j]], 'gx', lw=2, ms=10)
+                #plt.plot(r[bi][vorder[j]], vi[vorder[j]], 'gx', lw=2, ms=10)
               else:
                 break
           if bodylimit is None:
@@ -189,65 +186,65 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
             limits[i] = bodylimit
       if sigma:
         members = map(int, members)
-        return numpy.array(members)
-      #pylab.show()
-      return numpy.array(members), limits
+        return np.array(members)
+      #plt.show()
+      return np.array(members), limits
 
     def plot(x, y, memb=[], binsizes=[], limits=[],
              maxgap=1000, ylim=5000, output=False, verbose=True):
         if type(output) == str:
-            pylab.axes([0.12, 0.1, 0.84, 0.86])
+            plt.axes([0.12, 0.1, 0.84, 0.86])
         if len(memb) > 0:
-            nonmemb = numpy.array([i for i in xrange(len(x))
+            nonmemb = np.array([i for i in xrange(len(x))
                                    if i not in memb])
             if len(nonmemb) > 0:
-                pylab.plot(x[nonmemb], y[nonmemb], 'wo')
-            pylab.plot(x[memb], y[memb], 'ko')
+                plt.plot(x[nonmemb], y[nonmemb], 'wo')
+            plt.plot(x[memb], y[memb], 'ko')
             xlim = 1.2*max(x[memb])
         else:
-            pylab.plot(x, y, 'wo')
+            plt.plot(x, y, 'wo')
             xlim = 1.2*max(x)
         if len(binsizes) != 0:
             bins = [binsizes[i]+sum(binsizes[:i])
                     for i in xrange(len(binsizes))]
             for b in bins:
-                pylab.axvline(b, ls=':', color='b')
+                plt.axvline(b, ls=':', color='b')
             if len(limits) == len(binsizes):
                 xb = (0, bins[0])
-                yb = numpy.array([limits[0], limits[0]])
-                pylab.plot(xb, yb, 'r--')
-                pylab.plot(xb, -yb, 'r--')
-                pylab.plot(xb, maxgap + yb, 'r-')
-                pylab.plot(xb, -(maxgap + yb), 'r-')
+                yb = np.array([limits[0], limits[0]])
+                plt.plot(xb, yb, 'r--')
+                plt.plot(xb, -yb, 'r--')
+                plt.plot(xb, maxgap + yb, 'r-')
+                plt.plot(xb, -(maxgap + yb), 'r-')
                 for i in xrange(1, len(limits)):
                     xb = (bins[i-1], bins[i])
-                    yb = numpy.array([limits[i], limits[i]])
-                    pylab.plot(xb, yb, 'r--')
-                    pylab.plot(xb, -yb, 'r--')
-                    pylab.plot(xb, maxgap + yb, 'r-')
-                    pylab.plot(xb, -(maxgap + yb), 'r-')
-        pylab.axhline(0, ls='--', color='k')
-        pylab.xlim(0, xlim)
-        pylab.ylim(-ylim, ylim)
+                    yb = np.array([limits[i], limits[i]])
+                    plt.plot(xb, yb, 'r--')
+                    plt.plot(xb, -yb, 'r--')
+                    plt.plot(xb, maxgap + yb, 'r-')
+                    plt.plot(xb, -(maxgap + yb), 'r-')
+        plt.axhline(0, ls='--', color='k')
+        plt.xlim(0, xlim)
+        plt.ylim(-ylim, ylim)
         if xlim < 100:
-            pylab.xlabel('distance (Mpc)')
+            plt.xlabel('distance (Mpc)')
         else:
-            pylab.xlabel('distance (kpc)')
-        pylab.ylabel('velocity (km/s)')
+            plt.xlabel('distance (kpc)')
+        plt.ylabel('velocity (km/s)')
         if type(output) == str:
-            pylab.savefig(output, format=output[-3:])
+            plt.savefig(output, format=output[-3:])
             if verbose:
                 print('Saved to', output)
         else:
-            pylab.show()
-        pylab.close()
+            plt.show()
+        plt.close()
         return
 
     def run_membership(r, v, j,
                        min_Nperbin=15, min_binsize=250,
                        maingap=500, maxgap=1000, sigma=False,
                        verbose=True, debug=False):
-      rorder = numpy.argsort(r[j])
+      rorder = np.argsort(r[j])
       bins, binsizes = binning(r[j][rorder],
                                min_Nperbin=min_Nperbin,
                                min_binsize=min_binsize,
@@ -274,39 +271,39 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
     def zoguess(z, zo=None):
       c = 299792.46
       if zo is None:
-        bins = numpy.arange(min(z)-1e-4/c, max(z)+1e-4/c, 500/c)
+        bins = np.arange(min(z)-1e-4/c, max(z)+1e-4/c, 500/c)
       else:
-        bins = numpy.arange(zo-1e4/c, zo+1e4/c, 500/c)
-      hist, edges = numpy.histogram(z, bins=bins)
-      centers = numpy.array([(edges[i]+edges[i-1])/2 \
+        bins = np.arange(zo-1e4/c, zo+1e4/c, 500/c)
+      hist, edges = np.histogram(z, bins=bins)
+      centers = np.array([(edges[i]+edges[i-1])/2 \
                             for i in xrange(1, len(edges))])
-      j = numpy.argmax(hist)
+      j = np.argmax(hist)
       if j == len(hist) - 1:
-        zo = numpy.median(z[z > centers[j-1]])
+        zo = np.median(z[z > centers[j-1]])
       elif j == 0:
-        zo = numpy.median(z[z < centers[1]])
+        zo = np.median(z[z < centers[1]])
       else:
-        zo = numpy.median(z[(z > centers[j-1]) & (z < centers[j+1])])
+        zo = np.median(z[(z > centers[j-1]) & (z < centers[j+1])])
       return zo
     ## ------------------------------------------------------------- ##
 
     no = len(r)
     if verbose:
       print(no, 'galaxies initially')
-    j = numpy.arange(no)
+    j = np.arange(no)
     # initial redshift and peculiar velocities
     zo = zoguess(z, zo)
     v = c * (z - zo) / (1 + zo)
     if debug:
       print('zo = %.4f' %zo)
-      bins = numpy.arange(0, 1.001, 0.01)
-      pylab.hist(z, bins=bins, histtype='step')
-      pylab.axvline(zo, ls='--')
-      pylab.annotate('%d galaxies' %len(z), xy=(0.65,0.85),
+      bins = np.arange(0, 1.001, 0.01)
+      plt.hist(z, bins=bins, histtype='step')
+      plt.axvline(zo, ls='--')
+      plt.annotate('%d galaxies' %len(z), xy=(0.65,0.85),
                      xycoords='axes fraction', fontsize=16)
-      pylab.xlabel('z')
-      pylab.show()
-      pylab.close()
+      plt.xlabel('z')
+      plt.show()
+      plt.close()
       plot(r, v, ylim=10000)
 
     # initial cut
@@ -316,7 +313,7 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
       if verbose:
         msg = '%d galaxies after initial cuts of %d km/s and' \
                %(n, cut)
-        if numpy.median(r) < 10:
+        if np.median(r) < 10:
             msg += ' %.2f Mpc' %rcut
         else:
             msg += ' %d kpc' %rcut
@@ -329,7 +326,7 @@ def sgapper(r, z, zo=0, cut=4000, rcut=5000, useabs=True, min_Nperbin=15,
     if debug:
       print(sorted(j), n)
     # calibrate redshift and peculiar velocities
-    zo = numpy.median(z[j])
+    zo = np.median(z[j])
     v = c * (z - zo) / (1 + zo)
 
     results = run_membership(r, v, j,
@@ -398,7 +395,7 @@ def Cbi(x, c=6.):
     Biweight Location estimator
     """
     mad = MAD(x)
-    m = numpy.median(x)
+    m = np.median(x)
     u = (x - m) / (c * mad)
     good = (abs(u) < 1)
     num = sum((x[good] - m) * (1 - u[good]**2) ** 2)
@@ -406,5 +403,5 @@ def Cbi(x, c=6.):
     return m + num / den
 
 def MAD(x):
-    n = numpy.absolute(x - numpy.median(x))
-    return numpy.median(n)
+    n = np.absolute(x - np.median(x))
+    return np.median(n)

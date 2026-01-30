@@ -1,6 +1,3 @@
-from __future__ import absolute_import, division, print_function
-
-
 class FootprintFile:
 
     def __init__(self, filename, format=None):

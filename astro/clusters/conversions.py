@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function
-
 import numpy
 import uncertainties
-from astro import constants, cosmology, units
+
+from .. import cosmology
 
 # from the KiDS GGL pipeline
 # should maybe include the NFW file in this package

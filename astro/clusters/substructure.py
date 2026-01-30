@@ -1,11 +1,5 @@
 #!/usr/bin/env python
-from __future__ import absolute_import, division, print_function
-
-import itertools
-import pylab
-import readfile
-import scipy
-from astLib import astCoords
+import numpy as np
 from scipy import ndimage
 
 from .. import cosmology
@@ -22,7 +16,7 @@ def asymetry(x, y, lum=None, center=None, z=None, r200=1, dx=0.02, width=4,
   I, b = smooth_map(x, y, lum, center, z, r200, dx, width, profile, rweight)
   s2 = (I**2).sum()
   if center is not None:
-    center = -scipy.array(center)
+    center = -np.array(center)
   mI, b = smooth_map(-x, -y, lum, center, z, r200, dx, width, profile,
                      rweight)
   d2 = (I - mI) ** 2
@@ -49,10 +43,10 @@ def centroid_shift(array, levels=None):
   if levels is None:
     rms = -1
     masked = array
-    while rms != scipy.std(masked):
-      rms = scipy.std(masked)
+    while rms != np.std(masked):
+      rms = np.std(masked)
       masked = masked[masked < 3*rms]
-    levels = scipy.arange(2, 5.1, 0.5) * rms
+    levels = np.arange(2, 5.1, 0.5) * rms
   for l in levels:
     masked = array
     masked[masked < l] = 0
@@ -133,31 +127,31 @@ def smooth_map(x, y, lum=None, center=None, z=None, r200=1, dx=0.02, width=4,
   x200 = r200 / dx
   # check whether center is given
   if center is not None:
-    dz = cosmology.dA(z) * scipy.pi/180
+    dz = cosmology.dA(z) * np.pi/180
     # want to do it like this because the sign matters!
-    x = -1 * (x - center[0]) * scipy.cos(scipy.pi/180 * center[1]) * dz
+    x = -1 * (x - center[0]) * np.cos(np.pi/180 * center[1]) * dz
     y = (y - center[1]) * dz
   # create grid
   edge = width/2.
-  bins = scipy.arange(-edge-dx/2., edge+dx, dx)
+  bins = np.arange(-edge-dx/2., edge+dx, dx)
   Nbins = len(bins)
-  xo = yo = scipy.array([(bins[i]+bins[i-1])/2 for i in xrange(1, Nbins)])
+  xo = yo = np.array([(bins[i]+bins[i-1])/2 for i in range(1, Nbins)])
   # each galaxy's distance to each cell (dimension 3xN)
-  dcells = scipy.array([[scipy.hypot(x-xi, y-yj) for xi in xo] for yj in yo])
-  dist = scipy.hypot(x, y) / x200
+  dcells = np.array([[np.hypot(x-xi, y-yj) for xi in xo] for yj in yo])
+  dist = np.hypot(x, y) / x200
   # choice of profile and calculation of map
   if profile == 'gauss':
     def p(t, s):
       # why is there a s**2 in the denominator, instead of s?
-      return dx**2 * scipy.exp(-t**2/(2*s**2)) / (s*scipy.sqrt(2*scipy.pi))
+      return dx**2 * np.exp(-t**2/(2*s**2)) / (s*np.sqrt(2*np.pi))
     if rweight == 'wen13':
       w = (0.03 + 0.15*dist) * x200
     else:
       w = rweight
-    grid = [scipy.array([sum(lum * p(dij, w)) for dij in dcells[jj]]) \
-            for jj in xrange(len(yo))]
+    grid = [np.array([sum(lum * p(dij, w)) for dij in dcells[jj]]) \
+            for jj in range(len(yo))]
   # done!
-  return scipy.array(grid), bins
+  return np.array(grid), bins
 
 def map_residual(smap, z=None, r200=1, dx=0.02, width=4, profile='king'):
   return

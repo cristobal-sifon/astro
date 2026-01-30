@@ -32,10 +32,6 @@ References
   Rykoff, E. S., Koester, B. P., Rozo, E., et al., 2011, ApJ, 746, 178
 
 """
-from __future__ import absolute_import, division, print_function
-
-from itertools import count
-import emcee
 from matplotlib import pyplot as plt, ticker
 import numpy as np
 from scipy import integrate, optimize, stats
@@ -44,26 +40,30 @@ import sys
 from time import sleep
 import warnings
 
-if sys.version_info[0] == 2:
-    from itertools import izip
-    input = raw_input
-else:
-    izip = zip
-    xrange = range
-
 # my code -- can pip install!
 from plottery import plotutils
+
 plotutils.update_rcParams()
+
 
 # requires manual installation
 try:
+    import emcee
+
+    _has_emcee = True
+except ImportError:
+    _has_emcee = False
+
+try:
     import ecgmmPy
+
     _has_ecgmm = True
 except ImportError:
     _has_ecgmm = False
 
 # local
-from .. import cosmology
+# this is use to calculate dProj in lambda, but note that I removed the constants module!
+# from .. import cosmology
 
 
 ## -------------------- ##
@@ -75,11 +75,31 @@ from .. import cosmology
 ## -------------------- ##
 
 
-def lambda_richness(z, R, mag, color, color_err, rs_zeropoint, rs_slope,
-                    mstar, mlim, bg, mag_err=0, rs_sigma=0.05, rs_pivot=0,
-                    alpha=-1.2, Ro=0.9, Rs=0.15, Rcore=0.1, sigma_R=0.05,
-                    beta=0.2, h=0.7, maxiter=10000, tolerance=0.1,
-                    full_output=True):
+def lambda_richness(
+    z,
+    R,
+    mag,
+    color,
+    color_err,
+    rs_zeropoint,
+    rs_slope,
+    mstar,
+    mlim,
+    bg,
+    mag_err=0,
+    rs_sigma=0.05,
+    rs_pivot=0,
+    alpha=-1.2,
+    Ro=0.9,
+    Rs=0.15,
+    Rcore=0.1,
+    sigma_R=0.05,
+    beta=0.2,
+    h=0.7,
+    maxiter=10000,
+    tolerance=0.1,
+    full_output=True,
+):
     """
     See Section 3 in Rykoff et al. (2012)
 
@@ -159,51 +179,95 @@ def lambda_richness(z, R, mag, color, color_err, rs_zeropoint, rs_slope,
     Rs /= h
     Rcore /= h
     sigma_R /= h
-    Cfilter = filter_color(mag, color, color_err, rs_zeropoint, rs_slope,
-                           sigma=rs_sigma, magpivot=rs_pivot)
+    Cfilter = filter_color(
+        mag, color, color_err, rs_zeropoint, rs_slope, sigma=rs_sigma, magpivot=rs_pivot
+    )
     Lfilter = filter_luminosity(mag, mstar, mlim, alpha=alpha)
-    richness = _lambda(50., z, R, mag, mlim, Cfilter, Lfilter, bg,
-                       mag_err=mag_err, Ro=Ro, Rs=Rs, Rcore=Rcore,
-                       sigma_R=sigma_R, beta=beta, maxiter=maxiter)
+    richness = _lambda(
+        50.0,
+        z,
+        R,
+        mag,
+        mlim,
+        Cfilter,
+        Lfilter,
+        bg,
+        mag_err=mag_err,
+        Ro=Ro,
+        Rs=Rs,
+        Rcore=Rcore,
+        sigma_R=sigma_R,
+        beta=beta,
+        maxiter=maxiter,
+    )
     richness, px, Rfilter, Rc = richness
     i = 0
     if beta != 0:
         richness1 = 10000
-        #median = np.median
-        #std = np.std
-        #nstart = 100
-        #lambda_values = list(np.linspace(0, 100000, nstart))
-        #richness_err = [0 for j in lambda_values]
-        #while abs(richness - richness1) / richness > tolerance:
+        # median = np.median
+        # std = np.std
+        # nstart = 100
+        # lambda_values = list(np.linspace(0, 100000, nstart))
+        # richness_err = [0 for j in lambda_values]
+        # while abs(richness - richness1) / richness > tolerance:
         lambda_values = []
         richness_err = []
         err = 1
         while abs(richness - richness1) / err > tolerance:
             richness1 = richness
-            richness = _lambda(richness, z, R, mag, mlim, Cfilter, Lfilter,
-                               bg, mag_err=mag_err, sigma_R=sigma_R, Ro=Ro,
-                               Rs=Rs, Rcore=Rcore, beta=beta, maxiter=maxiter)
+            richness = _lambda(
+                richness,
+                z,
+                R,
+                mag,
+                mlim,
+                Cfilter,
+                Lfilter,
+                bg,
+                mag_err=mag_err,
+                sigma_R=sigma_R,
+                Ro=Ro,
+                Rs=Rs,
+                Rcore=Rcore,
+                beta=beta,
+                maxiter=maxiter,
+            )
             richness, px, Rfilter, Rc = richness
             lambda_values.append(richness)
-            err = ((px * (1-px)).sum())**0.5
+            err = ((px * (1 - px)).sum()) ** 0.5
             richness_err.append(err)
             i += 1
             # it seems for ACTPol clusters that by then things have converged
             # long ago
             if i == 1000:
                 break
-    richness_err = ((px * (1 - px)).sum())**0.5
+    richness_err = ((px * (1 - px)).sum()) ** 0.5
     if full_output:
-        return richness, richness_err, Rc, i, \
-               (Cfilter, Lfilter, Rfilter, px)
+        return richness, richness_err, Rc, i, (Cfilter, Lfilter, Rfilter, px)
     return richness, richness_err
 
 
-def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
-         sigma=False, rs=False, bcg=False, bcg_props={'marker':'*'},
-         output='', comments='',
-         fix_scatter=False, rsplot=True, mag_label='magnitude',
-         color_label='color', ylim=False, verbose=True):
+def plot(
+    rsg,
+    pivot,
+    mag,
+    color,
+    color_err=[],
+    alpha=False,
+    mu=False,
+    sigma=False,
+    rs=False,
+    bcg=False,
+    bcg_props={"marker": "*"},
+    output="",
+    comments="",
+    fix_scatter=False,
+    rsplot=True,
+    mag_label="magnitude",
+    color_label="color",
+    ylim=False,
+    verbose=True,
+):
     """
     Plot the red sequence, along with the results of ECGMM when available
 
@@ -257,9 +321,9 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
                    verbose
 
     """
-    red = (1,0,0)
-    blue = (0,0,1)
-    yellow = (0.7,0.7,0)
+    red = (1, 0, 0)
+    blue = (0, 0, 1)
+    yellow = (0.7, 0.7, 0)
 
     if len(color_err) == 0:
         color_err = np.zeros(mag.size)
@@ -278,12 +342,12 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
         scatter = rs[2]
 
     # define figure
-    fig = plt.figure(figsize=(9,6))
+    fig = plt.figure(figsize=(9, 6))
 
     # CMD
     cmr = plt.axes([0.12, 0.12, 0.65, 0.84])
-    #cmr.set_xlabel('{0}-band magnitude'.format(mag_label))
-    #cmr.set_ylabel('{0} color'.format(color_label))
+    # cmr.set_xlabel('{0}-band magnitude'.format(mag_label))
+    # cmr.set_ylabel('{0} color'.format(color_label))
     cmr.set_xlabel(mag_label)
     cmr.set_ylabel(color_label)
     # plot bcg if given in the proper format
@@ -291,55 +355,82 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
         try:
             if len(bcg) == 2:
                 # some defaults
-                bcg_props['marker'] = bcg_props.get('marker', '*')
-                bcg_props['color'] = bcg_props.get('color', 'C1')
-                bcg_props['ms'] = bcg_props.get('ms', 10)
-                bcg_props['zorder'] = bcg_props.get('zorder', 100)
+                bcg_props["marker"] = bcg_props.get("marker", "*")
+                bcg_props["color"] = bcg_props.get("color", "C1")
+                bcg_props["ms"] = bcg_props.get("ms", 10)
+                bcg_props["zorder"] = bcg_props.get("zorder", 100)
                 cmr.plot(*bcg, **bcg_props)
             else:
-                raise ValueError('parameter bcg must have length 2')
+                raise ValueError("parameter bcg must have length 2")
         except ValueError:
-            msg = 'parameter bcg must be an array-like of length 2'
+            msg = "parameter bcg must be an array-like of length 2"
             raise ValueError(msg)
-    cmr.plot(mag, color, '.', color=blue)
+    cmr.plot(mag, color, ".", color=blue)
     if len(rsg) > 0:
-        cmr.errorbar(mag[rsg], color[rsg], yerr=color_err[rsg], fmt='.',
-                     color=red, ecolor=red, elinewidth=1, mec=red, capsize=1)
+        cmr.errorbar(
+            mag[rsg],
+            color[rsg],
+            yerr=color_err[rsg],
+            fmt=".",
+            color=red,
+            ecolor=red,
+            elinewidth=1,
+            mec=red,
+            capsize=1,
+        )
     if comments:
-        cmr.annotate(comments, xy=(0.05, 0.95), xycoords='axes fraction',
-                     va='top', ha='left')
+        cmr.annotate(
+            comments, xy=(0.05, 0.95), xycoords="axes fraction", va="top", ha="left"
+        )
     # Initial color selection
     if ylim is False:
-        bins = np.arange(min(color), max(color)+0.5, 0.5)
+        bins = np.arange(min(color), max(color) + 0.5, 0.5)
         hist = np.histogram(color, bins)[0]
         jo = np.argmax(hist)
-        co = (bins[jo]+bins[jo+1]) / 2
-        ylim = (co-1.5, co+1.5)
+        co = (bins[jo] + bins[jo + 1]) / 2
+        ylim = (co - 1.5, co + 1.5)
 
     # Red Sequence
-    xticklabels = np.arange(int(xmin + pivot)-1, max(mag) + pivot, 1,
-                               dtype=int)
+    xticklabels = np.arange(int(xmin + pivot) - 1, np.nanmax(mag) + pivot, 1, dtype=int)
     xticks = xticklabels - pivot
-    xticklabels = ['${0}$'.format(xtl) for xtl in xticklabels]
+    xticklabels = ["${0}$".format(xtl) for xtl in xticklabels]
     if rs is not False:
         if rs[1] >= 0:
             cmr.annotate(
-                '%s = %.3f + %.3f (%s$-$%.2f) ($\sigma=%.2f$)' \
-                    %(color_label.replace('$', ''), rs[0], rs[1],
-                mag_label.replace('$', ''), pivot, scatter),
-                xy=(0.05, 0.03), xycoords='axes fraction', fontsize=13)
+                "%s = %.3f + %.3f (%s$-$%.2f) ($\sigma=%.2f$)"
+                % (
+                    color_label.replace("$", ""),
+                    rs[0],
+                    rs[1],
+                    mag_label.replace("$", ""),
+                    pivot,
+                    scatter,
+                ),
+                xy=(0.05, 0.03),
+                xycoords="axes fraction",
+                fontsize=13,
+            )
         else:
             cmr.annotate(
-                '%s = %.3f$ - $%.3f (%s$-$%.2f) ($\sigma=%.2f$)' \
-                    %(color_label.replace('$', ''), rs[0], -rs[1],
-                mag_label.replace('$', ''), pivot, scatter),
-                xy=(0.05, 0.03), xycoords='axes fraction', fontsize=13)
+                "%s = %.3f$ - $%.3f (%s$-$%.2f) ($\sigma=%.2f$)"
+                % (
+                    color_label.replace("$", ""),
+                    rs[0],
+                    -rs[1],
+                    mag_label.replace("$", ""),
+                    pivot,
+                    scatter,
+                ),
+                xy=(0.05, 0.03),
+                xycoords="axes fraction",
+                fontsize=13,
+            )
         if rsplot:
             t = np.linspace(xticks[0], max(mag), 100)
-            cmr.plot(t, rs[0] + rs[1]*t, 'k-', lw=2, zorder=-5)
-            cmr.plot(t, rs[0] + rs[1]*t + scatter, 'k--', lw=2, zorder=-5)
-            cmr.plot(t, rs[0] + rs[1]*t - scatter, 'k--', lw=2, zorder=-5)
-    #cmr.xaxis.set_major_formatter(ticker.FormatStrFormatter('$%s$'))
+            cmr.plot(t, rs[0] + rs[1] * t, "k-", lw=2, zorder=-5)
+            cmr.plot(t, rs[0] + rs[1] * t + scatter, "k--", lw=2, zorder=-5)
+            cmr.plot(t, rs[0] + rs[1] * t - scatter, "k--", lw=2, zorder=-5)
+    # cmr.xaxis.set_major_formatter(ticker.FormatStrFormatter('$%s$'))
     cmr.set_xticks(xticks)
     cmr.set_xticklabels(xticklabels)
     cmr.set_xlim(xmin, max(mag))
@@ -348,30 +439,32 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
     # Color histogram
     ch = plt.axes([0.77, 0.12, 0.2, 0.84])
     bins = np.arange(ylim[0], ylim[1] + 0.05, 0.05)
-    n, bins, patches = ch.hist(color, bins=bins, histtype='stepfilled',
-                               orientation='horizontal', fc=yellow)
+    n, bins, patches = ch.hist(
+        color, bins=bins, histtype="stepfilled", orientation="horizontal", fc=yellow
+    )
     # the area of the histogram
     A_hist = n.sum() * (bins[1] - bins[0])
     # assuming that alpha, mu and sigma all have the same format
     tbin = 0.01
     t = np.arange(ylim[0], ylim[1] + tbin, tbin)
-    if hasattr(mu, '__iter__'):
+    if hasattr(mu, "__iter__"):
         # Red Sequence(s)
         if len(mu) == 1:
             f_rs = stats.norm.pdf(t, mu[0], sigma[0])
-            f_rs = f_rs / (np.sqrt(2*np.pi) * sigma[0]**2)
+            f_rs = f_rs / (np.sqrt(2 * np.pi) * sigma[0] ** 2)
             A_rs = f_rs.sum() * tbin
-            plt.plot(f_rs * (A_hist/A_rs), t, '-', color=red, lw=2)
+            plt.plot(f_rs * (A_hist / A_rs), t, "-", color=red, lw=2)
         else:
-            f_rs = np.zeros((len(mu)-1,t.size))
-            A_rs = np.zeros((len(mu)-1,t.size))
-            for i in xrange(1, len(mu)):
-                f_rs[i-1] = stats.norm.pdf(t, mu[i], sigma[i])
-                f_rs[i-1] /= np.sqrt(2*np.pi) * sigma[i]**2
-                A_rs[i-1] = f_rs[i-1].sum() * tbin
+            f_rs = np.zeros((len(mu) - 1, t.size))
+            A_rs = np.zeros((len(mu) - 1, t.size))
+            for i in range(1, len(mu)):
+                f_rs[i - 1] = stats.norm.pdf(t, mu[i], sigma[i])
+                f_rs[i - 1] /= np.sqrt(2 * np.pi) * sigma[i] ** 2
+                A_rs[i - 1] = f_rs[i - 1].sum() * tbin
             # Blue Cloud
-            f_bc = stats.norm.pdf(t, mu[0], sigma[0]) / \
-                   ((2*np.pi)**0.5 * sigma[0]**2)
+            f_bc = stats.norm.pdf(t, mu[0], sigma[0]) / (
+                (2 * np.pi) ** 0.5 * sigma[0] ** 2
+            )
             A_bc = f_bc.sum() * tbin
             # normalized so that the ratio of "areas" is equal to the ratio of
             # alpha's:
@@ -379,19 +472,19 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
                 g_bc = f_bc * (alpha[0] * A_rs) / (sum(alpha[1:]) * A_bc)
                 g_bc = np.squeeze(g_bc)
                 A_bc = g_bc.sum() * tbin
-            #plt.plot(g_bc, t, '-', color=blue, lw=2)
+            # plt.plot(g_bc, t, '-', color=blue, lw=2)
             # the areas of the histograms and curves shall be the same
             ratio_areas = A_hist / (np.sum(A_rs, axis=0) + A_bc)
             for fi in f_rs:
-                plt.plot(fi*ratio_areas, t, '-', color=red, lw=2)
+                plt.plot(fi * ratio_areas, t, "-", color=red, lw=2)
             if A_bc > 0:
-                plt.plot(g_bc*ratio_areas, t, '-', color=blue, lw=2)
+                plt.plot(g_bc * ratio_areas, t, "-", color=blue, lw=2)
 
-    elif mu is not False: # will be a scalar
+    elif mu is not False:  # will be a scalar
         f_rs = stats.norm.pdf(t, mu, sigma)
-        f_rs = f_rs / (np.sqrt(2*np.pi) * sigma ** 2)
+        f_rs = f_rs / (np.sqrt(2 * np.pi) * sigma**2)
         A_rs = f_rs.sum() * tbin
-        plt.plot(g_rs * (A_hist/A_rs), t, '-', color=red, lw=2)
+        plt.plot(g_rs * (A_hist / A_rs), t, "-", color=red, lw=2)
 
     # ticks and limits
     ch.set_ylim(*ylim)
@@ -410,23 +503,46 @@ def plot(rsg, pivot, mag, color, color_err=[], alpha=False, mu=False,
             sleep(3)
             plt.savefig(output, format=output[-3:])
         if verbose:
-            print('  Saved to', output)
+            print("  Saved to", output)
     else:
         plt.show()
     plt.close()
     return
 
 
-def redsequence(mag, color, color_err=[], pivot=0, method='mle',
-                fix_slope=False, fix_norm=False, fix_scatter=False,
-                width=2, npoints=100, converge=True, make_plot=True,
-                bcg=False, bcg_props={},
-                plot_output='', plot_comments='', mag_label='m',
-                color_label='c', plot_ylim=False, do_ecgmm=True,
-                mincolor=None, maxcolor=None, minmag=None, maxmag=None,
-                flavour='BIC',
-                bootstrap=100, alpha=[0.2,0.8], mu=None, sigma=[1.0,0.05],
-                verbose=True, debug=False):
+def redsequence(
+    mag,
+    color,
+    color_err=[],
+    pivot=0,
+    method="mle",
+    fix_slope=False,
+    fix_norm=False,
+    fix_scatter=False,
+    width=2,
+    npoints=100,
+    converge=True,
+    make_plot=True,
+    bcg=False,
+    bcg_props={},
+    plot_output="",
+    plot_comments="",
+    mag_label="m",
+    color_label="c",
+    plot_ylim=False,
+    do_ecgmm=True,
+    mincolor=None,
+    maxcolor=None,
+    minmag=None,
+    maxmag=None,
+    flavour="BIC",
+    bootstrap=100,
+    alpha=[0.2, 0.8],
+    mu=None,
+    sigma=[1.0, 0.05],
+    verbose=True,
+    debug=False,
+):
     """
     Fit the red sequence. This is the main task; it is the only task in
     this file that should be called by itself for most purposes. All
@@ -553,16 +669,16 @@ def redsequence(mag, color, color_err=[], pivot=0, method='mle',
     """
     if not isinstance(fix_norm, bool) and isinstance(fix_norm, int):
         fix_norm = float(fix_norm)
-    if not isinstance(fix_slope, bool) and  isinstance(fix_slope, int):
+    if not isinstance(fix_slope, bool) and isinstance(fix_slope, int):
         fix_slope = float(fix_slope)
     if not isinstance(fix_scatter, bool) and isinstance(fix_scatter, int):
         fix_scatter = float(fix_scatter)
 
     if fix_scatter is not False:
-        #if type(fix_scatter) not in (float, np.float64):
+        # if type(fix_scatter) not in (float, np.float64):
         if not isinstance(fix_scatter, float):
-            msg = 'Error: parameter fix_scatter must either be False or'
-            msg += 'a float between 0 and 1. Exiting.'
+            msg = "Error: parameter fix_scatter must either be False or"
+            msg += "a float between 0 and 1. Exiting."
             raise ValueError(msg)
     array_equal = np.array_equal
     mag -= pivot
@@ -577,49 +693,68 @@ def redsequence(mag, color, color_err=[], pivot=0, method='mle',
     galaxies = np.arange(len(mag), dtype=int)
     # initialize mu?
     if mu is None and do_ecgmm:
-        bins = np.arange(min(color), max(color)+0.01, 0.05)
+        bins = np.arange(min(color), max(color) + 0.01, 0.05)
         h, e = np.histogram(color, bins)
         co = e[np.argmax(h)]
-        mu = [co-1, co]
+        mu = [co - 1, co]
         if verbose:
-            print(f'mu_initial = ({mu[0]:.3f},{mu[1]:.3f})')
+            print(f"mu_initial = ({mu[0]:.3f},{mu[1]:.3f})")
 
     # run ECGMM?
     if do_ecgmm:
-        alpha, mu, sigma = _ecgmm(color, color_err, alpha, mu, sigma,
-                                  flavour, bootstrap)
-        rsg = rsgalaxies(mag, color, color_err, mu[1], sigma[1],
-                         indices=galaxies, width=3)
+        alpha, mu, sigma = _ecgmm(
+            color, color_err, alpha, mu, sigma, flavour, bootstrap
+        )
+        rsg = rsgalaxies(
+            mag, color, color_err, mu[1], sigma[1], indices=galaxies, width=3
+        )
         # this happens when ECGMM is not able to fit two gaussians, probably
         # because there are too few objects?
         if len(rsg) <= 5:
-            alpha, mu, sigma = _ecgmm(color, color_err,
-                                      alpha=[1], mu=[1.2], sigma=[0.05])
-            rsg = rsgalaxies(mag, color, color_err, mu, sigma,
-                             indices=galaxies, width=2)
-        po = (max(mu),
-              (fix_slope if isinstance(fix_slope, float) else -0.01),
-              (fix_scatter if isinstance(fix_scatter, float) else 0.05))
+            alpha, mu, sigma = _ecgmm(
+                color, color_err, alpha=[1], mu=[1.2], sigma=[0.05]
+            )
+            rsg = rsgalaxies(
+                mag, color, color_err, mu, sigma, indices=galaxies, width=2
+            )
+        po = (
+            max(mu),
+            (fix_slope if isinstance(fix_slope, float) else -0.01),
+            (fix_scatter if isinstance(fix_scatter, float) else 0.05),
+        )
         if verbose:
-            print('ECGMM run:')
-            print('    mu =', mu)
-            print('    alpha =', alpha)
-            print('    sigma =', sigma)
+            print("ECGMM run:")
+            print("    mu =", mu)
+            print("    alpha =", alpha)
+            print("    sigma =", sigma)
     # select objects for red sequence manually
     else:
         alpha = False
         mu = False
         sigma = False
         if mincolor is None:
-            comm = 'Choose a color range that roughly delimits\n' \
-                   'red sequence galaxies. You will have\n' \
-                   'to input it in the terminal. You can also give a third\n' \
-                   'argument, which will be a minimum magnitude to use'
-            plot(galaxies, pivot, mag, color, color_err, bcg=bcg,
-                 bcg_props=bcg_props, comments=comm, mag_label=mag_label,
-                 color_label=color_label, ylim=plot_ylim,
-                 fix_scatter=fix_scatter, verbose=verbose)
-            msg = 'Write down lower and upper colors (space-separated): '
+            comm = (
+                "Choose a color range that roughly delimits\n"
+                "red sequence galaxies. You will have\n"
+                "to input it in the terminal. You can also give a third\n"
+                "argument, which will be a minimum magnitude to use"
+            )
+            plot(
+                galaxies,
+                pivot,
+                mag,
+                color,
+                color_err,
+                bcg=bcg,
+                bcg_props=bcg_props,
+                comments=comm,
+                mag_label=mag_label,
+                color_label=color_label,
+                ylim=plot_ylim,
+                fix_scatter=fix_scatter,
+                verbose=verbose,
+            )
+            msg = "Write down lower and upper colors (space-separated): "
             yo = input(msg)
             yo = [float(y) for y in yo.split()]
         else:
@@ -633,16 +768,15 @@ def redsequence(mag, color, color_err=[], pivot=0, method='mle',
         elif len(yo) == 2:
             rsg = galaxies[(color > yo[0]) & (color < yo[1])]
         else:
-            rsg = galaxies[(color > yo[0]) & (color < yo[1]) & \
-                           (mag+pivot > yo[2])]
+            rsg = galaxies[(color > yo[0]) & (color < yo[1]) & (mag + pivot > yo[2])]
         if len(yo) == 1:
             mu = [yo[0] + 0.2]
         if len(yo) >= 2:
             mu = [(yo[0] + yo[1]) / 2]
         # just a guess: the mode of the color histogram
         else:
-            n, x = np.histogram(color, np.arange(mu[0]-1,mu[0]+1,0.1))
-            x = (x[:-1]+x[1:]) / 2
+            n, x = np.histogram(color, np.arange(mu[0] - 1, mu[0] + 1, 0.1))
+            x = (x[:-1] + x[1:]) / 2
             mu = [x[np.argmax(n)]]
         if isinstance(fix_slope, float):
             po = [mu[0]]
@@ -651,65 +785,117 @@ def redsequence(mag, color, color_err=[], pivot=0, method='mle',
         else:
             po = [mu[0], -0.01, 0.05]
 
-    #if method == 'bayesian':
-        #t_zp = np.linspace(rs[0] - 0.5, rs[0] + 0.5, npoints)
-        #t_sl = np.linspace(rs[1] - 0.5, rs[1] + 0.5, npoints)
-        #L = fit_rs(rsg, mag, color, color_err, method='bayesian',
-                    #t_zp=t_zp, t_sl=t_sl)
-        #return rsg, L
+    # if method == 'bayesian':
+    # t_zp = np.linspace(rs[0] - 0.5, rs[0] + 0.5, npoints)
+    # t_sl = np.linspace(rs[1] - 0.5, rs[1] + 0.5, npoints)
+    # L = fit_rs(rsg, mag, color, color_err, method='bayesian',
+    # t_zp=t_zp, t_sl=t_sl)
+    # return rsg, L
     rs = fit_rs(
-        rsg, mag, color, color_err, po=po, fix_slope=fix_slope,
-        fix_norm=fix_norm, fix_scatter=fix_scatter, method=method)
-    slope = (rs[1] if len(rs) >= 2 else fix_slope)
-    sigma_int = (rs[2] if len(rs) >= 3 else fix_scatter)
+        rsg,
+        mag,
+        color,
+        color_err,
+        po=po,
+        fix_slope=fix_slope,
+        fix_norm=fix_norm,
+        fix_scatter=fix_scatter,
+        method=method,
+    )
+    slope = rs[1] if len(rs) >= 2 else fix_slope
+    sigma_int = rs[2] if len(rs) >= 3 else fix_scatter
     rsg = rsgalaxies(
-        mag, color, color_err, rs[0], slope, indices=galaxies,
-        sigma_int=sigma_int, width=width, fit='tilted')
+        mag,
+        color,
+        color_err,
+        rs[0],
+        slope,
+        indices=galaxies,
+        sigma_int=sigma_int,
+        width=width,
+        fit="tilted",
+    )
     if fix_slope is False or fix_norm is False:
         if converge:
             rs1 = np.arange(1)
             nit = 0
             while not array_equal(rs1, rsg):
                 rs1 = rsg
-                rs = fit_rs(rsg, mag, color, color_err, fix_norm=fix_norm,
-                            po=rs, fix_slope=fix_slope,
-                            fix_scatter=fix_scatter, method=method)
-                slope = (rs[1] if len(rs) >= 2 else fix_slope)
-                sigma_int = (rs[2] if len(rs) >= 3 else fix_scatter)
+                rs = fit_rs(
+                    rsg,
+                    mag,
+                    color,
+                    color_err,
+                    fix_norm=fix_norm,
+                    po=rs,
+                    fix_slope=fix_slope,
+                    fix_scatter=fix_scatter,
+                    method=method,
+                )
+                slope = rs[1] if len(rs) >= 2 else fix_slope
+                sigma_int = rs[2] if len(rs) >= 3 else fix_scatter
                 rsg = rsgalaxies(
-                    mag, color, color_err, rs[0], slope, indices=rsg,
-                    sigma_int=sigma_int, width=width, fit='tilted')
+                    mag,
+                    color,
+                    color_err,
+                    rs[0],
+                    slope,
+                    indices=rsg,
+                    sigma_int=sigma_int,
+                    width=width,
+                    fit="tilted",
+                )
                 nit += 1
             if verbose:
-                print(f'{nit} iterations, {len(rsg)} galaxies\n')
+                print(f"{nit} iterations, {len(rsg)} galaxies\n")
         else:
-            slope = (rs[1] if len(rs) >= 2 else fix_slope)
-            sigma_int = (rs[2] if len(rs) >= 3 else fix_scatter)
+            slope = rs[1] if len(rs) >= 2 else fix_slope
+            sigma_int = rs[2] if len(rs) >= 3 else fix_scatter
             rsg = rsgalaxies(
-                mag, color, color_err, rs[0], rs[1], indices=rsg,
-                sigma_int=sigma_int, fit='tilted', width=width)
+                mag,
+                color,
+                color_err,
+                rs[0],
+                rs[1],
+                indices=rsg,
+                sigma_int=sigma_int,
+                fit="tilted",
+                width=width,
+            )
             if verbose:
-                print('  Only one iteration set: {0} galaxies'.format(
-                        len(rsg)))
+                print("  Only one iteration set: {0} galaxies".format(len(rsg)))
         # nice printing
         if debug:
-            slope = (rs[1] if len(rs) >= 2 else fix_slope)
-            if slope >=0:
-                print('CMR : {0} = {1:.3f} + {2:.3f}({3} - {4:.2f})'.format(
-                            color_label, rs[0], slope, mag_label, pivot))
+            slope = rs[1] if len(rs) >= 2 else fix_slope
+            if slope >= 0:
+                print(
+                    "CMR : {0} = {1:.3f} + {2:.3f}({3} - {4:.2f})".format(
+                        color_label, rs[0], slope, mag_label, pivot
+                    )
+                )
             else:
-                print('CMR : {0} = {1:.3f} - {2:.3f}({3} - {4:.2f})'.format(
-                            color_label, rs[0], -slope, mag_label, pivot))
+                print(
+                    "CMR : {0} = {1:.3f} - {2:.3f}({3} - {4:.2f})".format(
+                        color_label, rs[0], -slope, mag_label, pivot
+                    )
+                )
         # bootstrap errors
         a = []
         b = []
         s = []
         n = len(mag)
         while len(a) < npoints:
-            j = np.random.random_integers(0, n-1, n)
+            j = np.random.random_integers(0, n - 1, n)
             rsboot = fit_rs(
-                j, mag, color, color_err, method=method, fix_slope=fix_slope,
-                fix_scatter=fix_scatter, verbose=False)
+                j,
+                mag,
+                color,
+                color_err,
+                method=method,
+                fix_slope=fix_slope,
+                fix_scatter=fix_scatter,
+                verbose=False,
+            )
             try:
                 a.append(rsboot[0])
                 if fix_slope is False:
@@ -719,24 +905,46 @@ def redsequence(mag, color, color_err=[], pivot=0, method='mle',
             except TypeError:
                 pass
         a = (rs[0], np.std(a))
-        b = ((rs[1], np.std(b)) if len(rs) >= 2 else (fix_slope, 0.))
-        s = ((rs[2], np.std(s)) if len(rs) >= 3 else (fix_scatter, 0.))
+        b = (rs[1], np.std(b)) if len(rs) >= 2 else (fix_slope, 0.0)
+        s = (rs[2], np.std(s)) if len(rs) >= 3 else (fix_scatter, 0.0)
     # if both "fixes" are not False
     else:
-        rsg = rsgalaxies(mag, color, color_err, fix_norm, fix_slope,
-                         indices=rsg, fit='tilted', width=width)
+        rsg = rsgalaxies(
+            mag,
+            color,
+            color_err,
+            fix_norm,
+            fix_slope,
+            indices=rsg,
+            fit="tilted",
+            width=width,
+        )
         a = (fix_norm, 0)
         b = (fix_slope, 0)
         s = (rs[2], 0)
     if make_plot:
-        plot(rsg, pivot, mag, color, color_err, alpha,
-             mu, s, (a[0],b[0],s[0]), bcg=bcg, bcg_props=bcg_props,
-             output=plot_output,
-             #mu, sigma, rs, bcg=bcg, output=plot_output,
-             comments=plot_comments, fix_scatter=fix_scatter,
-             rsplot=True, mag_label=mag_label,
-             color_label=color_label, ylim=plot_ylim,
-             verbose=verbose)
+        plot(
+            rsg,
+            pivot,
+            mag,
+            color,
+            color_err,
+            alpha,
+            mu,
+            s,
+            (a[0], b[0], s[0]),
+            bcg=bcg,
+            bcg_props=bcg_props,
+            output=plot_output,
+            # mu, sigma, rs, bcg=bcg, output=plot_output,
+            comments=plot_comments,
+            fix_scatter=fix_scatter,
+            rsplot=True,
+            mag_label=mag_label,
+            color_label=color_label,
+            ylim=plot_ylim,
+            verbose=verbose,
+        )
     if verbose:
         print()
     return rsg, a, b, s
@@ -779,9 +987,10 @@ def filter_color(mag, color, color_err, zp, slope, sigma=0.05, magpivot=0):
 
     """
     cmr = zp + slope * (mag - magpivot)
-    sigma_total = (sigma**2 + color_err**2)**0.5
-    Cfilter = np.exp(-(color - cmr)**2 / (2*sigma_total**2)) / \
-              ((2*np.pi)**0.5 * sigma_total)
+    sigma_total = (sigma**2 + color_err**2) ** 0.5
+    Cfilter = np.exp(-((color - cmr) ** 2) / (2 * sigma_total**2)) / (
+        (2 * np.pi) ** 0.5 * sigma_total
+    )
     return Cfilter
 
 
@@ -812,11 +1021,12 @@ def filter_luminosity(mag, mstar, maglim, alpha=-1.2):
 
     """
     # normalization
-    f = lambda x: 10 ** (-0.4 * (x - mstar) * (alpha + 1)) * \
-                  np.exp(-10 ** (-0.4 * (x - mstar)))
+    f = lambda x: 10 ** (-0.4 * (x - mstar) * (alpha + 1)) * np.exp(
+        -(10 ** (-0.4 * (x - mstar)))
+    )
     A = 1 / integrate.quad(f, 0, maglim)[0]
-    #Lfilter = 10 ** (-0.4 * (mag - mstar) * (alpha + 1))
-    #Lfilter *= A * np.exp(-10 ** (-0.4 * (mag - mstar)))
+    # Lfilter = 10 ** (-0.4 * (mag - mstar) * (alpha + 1))
+    # Lfilter *= A * np.exp(-10 ** (-0.4 * (mag - mstar)))
     Lfilter = A * f(mag)
     Lfilter[mag > maglim] = 0
     return Lfilter
@@ -844,70 +1054,87 @@ def filter_radius(R, Rc, Rs, Rcore):
                     The value of the radial filter for each galaxy
 
     """
+
     def _f(x):
         """
         Auxiliary, Eq. 8 of Rykoff et al. (2012)
         """
         x[x == 1] = x[x == 1] + 1e-10
         y = np.zeros(x.shape)
-        y[x > 1] = np.arctan(((x[x > 1] - 1) / (1 + x[x > 1]))**0.5)
-        y[x < 1] = np.arctanh(((1 - x[x < 1]) / (1 + x[x < 1]))**0.5)
-        return 1 - 2 * y / np.absolute(1 - x**2)**0.5
-        #y = 1 - np.sign(x-1) * 2 * y / np.absolute(1 - x**2)**0.5
-        #return y
+        y[x > 1] = np.arctan(((x[x > 1] - 1) / (1 + x[x > 1])) ** 0.5)
+        y[x < 1] = np.arctanh(((1 - x[x < 1]) / (1 + x[x < 1])) ** 0.5)
+        return 1 - 2 * y / np.absolute(1 - x**2) ** 0.5
+        # y = 1 - np.sign(x-1) * 2 * y / np.absolute(1 - x**2)**0.5
+        # return y
+
     def _fscalar(x):
         if x == 1:
             x += 1e-10
         if x > 1:
-            y = np.arctan(((x - 1) / (1 + x))**0.5)
-            #return 1 - 2 * y / (x**2 - 1)**0.5
+            y = np.arctan(((x - 1) / (1 + x)) ** 0.5)
+            # return 1 - 2 * y / (x**2 - 1)**0.5
         elif x < 1:
-            y = np.arctanh(((1 - x) / (1 + x))**0.5)
-            #return 1 - 2 * y / (1 - x**2)**0.5
-        return 1 - 2 * y / np.absolute(1 - x**2)**0.5
+            y = np.arctanh(((1 - x) / (1 + x)) ** 0.5)
+            # return 1 - 2 * y / (1 - x**2)**0.5
+        return 1 - 2 * y / np.absolute(1 - x**2) ** 0.5
 
     x = R / Rs
-    within_core = (R < Rcore)
+    within_core = R < Rcore
     xcore = Rcore / Rs
     Rfilter = np.zeros(R.shape)
     # inside the core the filter is constant
     Rfilter[within_core] = _fscalar(xcore) / (xcore**2 - 1)
     j = (R <= Rc) & (R > Rcore)
-    Rfilter[j] = _f(x[j]) / (x[j]**2 - 1)
+    Rfilter[j] = _f(x[j]) / (x[j] ** 2 - 1)
     j = np.argsort(R)
     A = 1 / integrate.trapz(Rfilter[j], R[j])
     return A * Rfilter
 
 
-def _lambda(lambda_value, z, R, mag, mlim, Cfilter, Lfilter, bx, mag_err=0,
-            sigma_R=0.05, Ro=0.9, Rs=0.15, Rcore=0.1, beta=0.2, maxiter=1000):
+def _lambda(
+    lambda_value,
+    z,
+    R,
+    mag,
+    mlim,
+    Cfilter,
+    Lfilter,
+    bx,
+    mag_err=0,
+    sigma_R=0.05,
+    Ro=0.9,
+    Rs=0.15,
+    Rcore=0.1,
+    beta=0.2,
+    maxiter=1000,
+):
     """
     bx is background per sq. deg.
     """
-    Rc = Ro * (lambda_value/100.)**beta
-    j = (R < Rc)
+    Rc = Ro * (lambda_value / 100.0) ** beta
+    j = R < Rc
     # the radius in radians
-    d = np.pi/180 * cosmology.dProj(z, Rc, input_unit='Mpc', unit='deg')
+    d = np.pi / 180 * cosmology.dProj(z, Rc, input_unit="Mpc", unit="deg")
     # the prefactor (180/pi)**2 is to convert to sq. deg.
-    area = (180/np.pi)**2 * 2*np.pi * (1 - np.cos(d/2.))
+    area = (180 / np.pi) ** 2 * 2 * np.pi * (1 - np.cos(d / 2.0))
     Rfilter = filter_radius(R, Rc=Rc, Rs=Rs, Rcore=Rcore)
-    ux = 2*np.pi*R*Rfilter * Cfilter * Lfilter
+    ux = 2 * np.pi * R * Rfilter * Cfilter * Lfilter
     ux[ux == 0] = 1e-100
     bg = 2 * np.pi * R * bx * area
     px = np.zeros(ux.shape)
     # smooth edges (Rozo et al. 2015, Appendix B)
-    thetaL = 0.5 * (1 + erf((mlim - mag[j])/mag_err[j]))
-    thetaR = 0.5 * (1 + erf((Rc - R[j])/sigma_R))
-    #thetaL = thetaR = 1
-    eq = lambda n: n - (n*ux[j] * thetaL * thetaR / (n*ux[j] + bg[j])).sum()
+    thetaL = 0.5 * (1 + erf((mlim - mag[j]) / mag_err[j]))
+    thetaR = 0.5 * (1 + erf((Rc - R[j]) / sigma_R))
+    # thetaL = thetaR = 1
+    eq = lambda n: n - (n * ux[j] * thetaL * thetaR / (n * ux[j] + bg[j])).sum()
     try:
         richness = optimize.newton(eq, lambda_value, maxiter=maxiter)
     except RuntimeError:
         # doing this means that the loop
-        print('Hit RuntimeError with maxiter={0}'.format(maxiter))
+        print("Hit RuntimeError with maxiter={0}".format(maxiter))
         return lambda_value, px, Rfilter, Rc
-    #print('z={0:.2f} Rc={1:.2f} area={2:.4f} No={3:.1f} N={4:.1f}'.format(
-                #z, Rc, area, lambda_value, richness))
+    # print('z={0:.2f} Rc={1:.2f} area={2:.4f} No={3:.1f} N={4:.1f}'.format(
+    # z, Rc, area, lambda_value, richness))
     px[j] = richness * ux[j] / (richness * ux[j] + bg[j])
     return richness, px, Rfilter, Rc
 
@@ -929,8 +1156,15 @@ def _cmd_ylim(mu):
     return cmin, cmax
 
 
-def _ecgmm(c, e, alpha=[0.2,0.8], mu=[0.5,1.2], sigma=[0.5,0.05],
-           flavour='BIC', bootstrap=False):
+def _ecgmm(
+    c,
+    e,
+    alpha=[0.2, 0.8],
+    mu=[0.5, 1.2],
+    sigma=[0.5, 0.05],
+    flavour="BIC",
+    bootstrap=False,
+):
     """
     Error-Corrected Gaussian Mixture Model (ECGMM) by Hao et al. (2009)
 
@@ -956,17 +1190,25 @@ def _ecgmm(c, e, alpha=[0.2,0.8], mu=[0.5,1.2], sigma=[0.5,0.05],
 
     """
     if bootstrap is not False:
-        gmm = ecgmmPy.bsecgmm(c, e, alpha, mu, sigma, nboot=100,
-                              InfoCriteria=flavour)
-    elif flavour.upper() == 'AIC':
+        gmm = ecgmmPy.bsecgmm(c, e, alpha, mu, sigma, nboot=100, InfoCriteria=flavour)
+    elif flavour.upper() == "AIC":
         gmm = ecgmmPy.aic_ecgmm(c, e, alpha, mu, sigma)
-    elif flavour.upper() == 'BIC':
+    elif flavour.upper() == "BIC":
         gmm = ecgmmPy.bic_ecgmm(c, e, alpha, mu, sigma)
     return alpha, mu, sigma
 
 
-def _fit_mle(x1, x2, x2err=[], x1err=[], fix_slope=False, fix_scatter=False,
-             po=(1,0,0.1), verbose=False, full_output=False):
+def _fit_mle(
+    x1,
+    x2,
+    x2err=[],
+    x1err=[],
+    fix_slope=False,
+    fix_scatter=False,
+    po=(1, 0, 0.1),
+    verbose=False,
+    full_output=False,
+):
     """
     Maximum Likelihood Estimation of best-fit parameters
 
@@ -1000,7 +1242,7 @@ def _fit_mle(x1, x2, x2err=[], x1err=[], fix_slope=False, fix_scatter=False,
     """
     n = len(x1)
     if len(x2) != n:
-        raise ValueError('x1 and x2 must have same length')
+        raise ValueError("x1 and x2 must have same length")
     if len(x1err) == 0:
         x1err = np.zeros(n)
     if len(x2err) == 0:
@@ -1010,47 +1252,73 @@ def _fit_mle(x1, x2, x2err=[], x1err=[], fix_slope=False, fix_scatter=False,
     if isinstance(fix_slope, float):
         po = po[:1]
         if fix_scatter is False:
-            msg = '`fix_slope` is set, `fix_scatter` cannot be `False`.' \
-                  ' Setting to 0.05.'
+            msg = (
+                "`fix_slope` is set, `fix_scatter` cannot be `False`."
+                " Setting to 0.05."
+            )
             warnings.warn(msg, Warning)
 
     # a straight line with a fixed or free slope
-    #if fix_slope is False:
-    f = lambda a, b: a + b*x1
-    #else:
-        #f = lambda a: a + fix_slope*x1
+    # if fix_slope is False:
+    f = lambda a, b: a + b * x1
+    # else:
+    # f = lambda a: a + fix_slope*x1
 
     # fix intrinsic scatter to chosen value
     if isinstance(fix_scatter, float):
         # also fix slope
         if isinstance(fix_slope, float):
+
             def _loglike(p):
-                w = ((fix_slope*x1err)**2 + x2err**2 + fix_scatter**2)**0.5
-                return 2*np.log(w).sum() \
-                    + (((x2-f(p[0],fix_slope)) / w)**2).sum() \
-                    + np.log(n*(2*np.pi)**2) / 2
+                w = ((fix_slope * x1err) ** 2 + x2err**2 + fix_scatter**2) ** 0.5
+                return (
+                    2 * np.log(w).sum()
+                    + (((x2 - f(p[0], fix_slope)) / w) ** 2).sum()
+                    + np.log(n * (2 * np.pi) ** 2) / 2
+                )
+
         else:
+
             def _loglike(p):
-                w = lambda b: ((b*x1err)**2 + x2err**2 + fix_scatter**2)**0.5
-                return 2*np.log(w(p[1])).sum() \
-                    + (((x2-f(*p)) / w(p[1]))**2).sum() \
-                    + np.log(n*(2*np.pi)**2) / 2
+                w = lambda b: ((b * x1err) ** 2 + x2err**2 + fix_scatter**2) ** 0.5
+                return (
+                    2 * np.log(w(p[1])).sum()
+                    + (((x2 - f(*p)) / w(p[1])) ** 2).sum()
+                    + np.log(n * (2 * np.pi) ** 2) / 2
+                )
+
     # if intrinsic scatter is free then everything else is
     # free as well.
     else:
+
         def _loglike(p):
-            w = lambda b, s: ((b*x1err)**2 + x2err + s**2)**0.5
-            return 2*np.log(w(*p[1:])).sum() \
-                + (((x2-f(*p[:2])) / w(*p[1:]))**2).sum() \
-                + np.log(n*(2*np.pi)**2) / 2
+            w = lambda b, s: ((b * x1err) ** 2 + x2err + s**2) ** 0.5
+            return (
+                2 * np.log(w(*p[1:])).sum()
+                + (((x2 - f(*p[:2])) / w(*p[1:])) ** 2).sum()
+                + np.log(n * (2 * np.pi) ** 2) / 2
+            )
 
     out = optimize.fmin(_loglike, po, disp=verbose, full_output=full_output)
     return out
 
 
-def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
-           fix_scatter=False, t_zp=None, t_sl=None, method='mle', plim=5,
-           po=(1.5,-0.02,0.05), verbose=True):
+def fit_rs(
+    rsg,
+    mag,
+    c,
+    e,
+    max_e=0.25,
+    fix_slope=False,
+    fix_norm=False,
+    fix_scatter=False,
+    t_zp=None,
+    t_sl=None,
+    method="mle",
+    plim=5,
+    po=(1.5, -0.02, 0.05),
+    verbose=True,
+):
     """
     Fit the RS as a straight line to all galaxies selected (rsg).
 
@@ -1065,87 +1333,91 @@ def fit_rs(rsg, mag, c, e, max_e=0.25, fix_slope=False, fix_norm=False,
     n = len(rsg)
     if fix_norm is not False and fix_slope is not False:
         # (total) scatter -- taken from Pratt et al.
-        scatter = (c - (fix_norm + fix_slope * mag)).sum()**2 / (n-1)
+        scatter = (c - (fix_norm + fix_slope * mag)).sum() ** 2 / (n - 1)
         # intrinsic scatter
         scatter = scatter - ((e / c) ** 2).sum() / n
         return fix_norm, fix_slope, np.sqrt(scatter)
     mag = mag[rsg]
     c = c[rsg]
     e = e[rsg]
-    if method == 'wls':
+    if method == "wls":
         if fix_slope is False and fix_norm is False:
             cmr = lambda p, x: p[0] + p[1] * x
         elif fix_norm is not False:
             # to make life easier, no need to change the format of po
-            if hasattr(po, '__iter__'):
+            if hasattr(po, "__iter__"):
                 po = po[-1]
             cmr = lambda p, x: fixed[1] + p * x
         elif fix_slope is not False:
             # to make life easier, no need to change the format of po
-            if hasattr(po, '__iter__'):
+            if hasattr(po, "__iter__"):
                 po = po[0]
             cmr = lambda p, x: p + fixed[1] * x
         else:
             msg = 'fixed can only take the vaues "norm" and "slope"'
-            msg += ' as the first argument; see help page.'
+            msg += " as the first argument; see help page."
             raise ValueError(msg)
         cmr_err = lambda p, x, y, dy: (y - cmr(p, x)) / dy
         # just in case
         e[e == 0] = 1e-5
         good = np.arange(len(mag))[e < max_e]
-        out = optimize.leastsq(cmr_err, po, args=(mag[good],c[good],e[good]),
-                               full_output=1)
+        out = optimize.leastsq(
+            cmr_err, po, args=(mag[good], c[good], e[good]), full_output=1
+        )
         rs = out[0]
         # run one last time to allow a small variation
-        #if fix_slope is not False:
-            #if fixed[0] == 'norm':
-                #rs = [fixed[1], rs]
-            #elif fixed[0] == 'slope':
-                #rs = [rs, fixed[1]]
-            #else:
-                #msg = 'fixed can only take the vaues "norm" and "slope"'
-                #msg += ' as the first argument; see help page.'
-                #raise ValueError(msg)
+        # if fix_slope is not False:
+        # if fixed[0] == 'norm':
+        # rs = [fixed[1], rs]
+        # elif fixed[0] == 'slope':
+        # rs = [rs, fixed[1]]
+        # else:
+        # msg = 'fixed can only take the vaues "norm" and "slope"'
+        # msg += ' as the first argument; see help page.'
+        # raise ValueError(msg)
         if fix_scatter is False:
             # (total) scatter -- taken from Pratt et al.
-            scatter = ((c - (rs[0] + rs[1]*mag))**2).sum() / (n - 1)
+            scatter = ((c - (rs[0] + rs[1] * mag)) ** 2).sum() / (n - 1)
             # intrinsic scatter
-            scatter = (scatter - ((e/c)**2).sum() / n)**0.5
+            scatter = (scatter - ((e / c) ** 2).sum() / n) ** 0.5
         else:
             scatter = fix_scatter
         return rs[0], rs[1], scatter
 
-    elif method == 'mle':
+    elif method == "mle":
         mle = _fit_mle(
-            mag, c, x2err=e, fix_slope=fix_slope, fix_scatter=fix_scatter,
-            po=po)
+            mag, c, x2err=e, fix_slope=fix_slope, fix_scatter=fix_scatter, po=po
+        )
         return mle
 
-    elif method == 'bayesian':
+    elif method == "bayesian":
+        if not _has_emcee:
+            raise ImportError("You need to install emcee to use the bayesian method.")
+        raise NotImplementedError("bayesian method not yet implemented")
         if verbose:
-            print('  Calculating Likelihoods...')
-        #L = np.zeros((t_zp.size,t_sl.size))
-        #for i in xrange(t_zp.size):
-            #for j in xrange(t_sl.size):
-                #L[i][j] = np.prod(
-                    #_likelihood(mag, c, t_zp[i], t_sl[j], e/c))
+            print("  Calculating Likelihoods...")
+        # L = np.zeros((t_zp.size,t_sl.size))
+        # for i in range(t_zp.size):
+        # for j in range(t_sl.size):
+        # L[i][j] = np.prod(
+        # _likelihood(mag, c, t_zp[i], t_sl[j], e/c))
         ## marginalized distributions:
-        #if verbose:
-            #print('  Marginalizing...')
-        #zp = np.sum(L, axis=1)
-        #zp = zp / zp.sum() # normalized
-        #zp_peak = t_zp[np.argmax(zp)]
-        #zp_err = np.std(zp)
-        #sl = np.sum(L, axis=0)
-        #sl = sl / sl.sum()
-        #sl_peak = t_sl[np.argmax(sl)]
-        #sl_err = np.std(sl)
-        #if verbose:
-            #print('sl = {0:6.3f} +/- {1:.3f}'.format(sl_peak, sl_err))
-            #print('zp = {0:6.3f} +/- {1:.3f}'.format(zp_peak, zp_err))
-            #print('cov:')
-            #print(np.cov(sl, zp))
-        #return L
+        # if verbose:
+        # print('  Marginalizing...')
+        # zp = np.sum(L, axis=1)
+        # zp = zp / zp.sum() # normalized
+        # zp_peak = t_zp[np.argmax(zp)]
+        # zp_err = np.std(zp)
+        # sl = np.sum(L, axis=0)
+        # sl = sl / sl.sum()
+        # sl_peak = t_sl[np.argmax(sl)]
+        # sl_err = np.std(sl)
+        # if verbose:
+        # print('sl = {0:6.3f} +/- {1:.3f}'.format(sl_peak, sl_err))
+        # print('zp = {0:6.3f} +/- {1:.3f}'.format(zp_peak, zp_err))
+        # print('cov:')
+        # print(np.cov(sl, zp))
+        # return L
         sampler = emcee.EnsembleSampler
 
     return
@@ -1156,19 +1428,20 @@ def _likelihood(mag, c, zp, sl, e=1):
     e is the fractional error on the color
     """
     line = zp + sl * mag
-    n = np.sqrt(2*np.pi) * e * line
-    p = np.exp(-(c - line) ** 2 / (2 * (e*line) ** 2))
+    n = np.sqrt(2 * np.pi) * e * line
+    p = np.exp(-((c - line) ** 2) / (2 * (e * line) ** 2))
     return p / n
 
 
 def _lnprob(theta, mag, color, color_err=0.1, priors=None):
-    #zp, sl = theta
-    #if priors is not None:
+    # zp, sl = theta
+    # if priors is not None:
     return
 
 
-def rsgalaxies(mag, color, color_err, mu, sigma, indices=None, width=2,
-               sigma_int=0.05, fit='flat'):
+def rsgalaxies(
+    mag, color, color_err, mu, sigma, indices=None, width=2, sigma_int=0.05, fit="flat"
+):
     """
     Uses the fit to the RS from fit_rs and selects all galaxies within
     width*sigma_tot.
@@ -1181,11 +1454,11 @@ def rsgalaxies(mag, color, color_err, mu, sigma, indices=None, width=2,
     """
     if indices is None:
         indices = np.arange(mag.size)
-    w = (sigma_int**2 + color_err[indices]**2)**0.5
-    if fit == 'flat':
-        rsg = indices[np.absolute(color[indices] - mu) < width*w]
-    elif fit == 'tilted':
+    w = (sigma_int**2 + color_err[indices] ** 2) ** 0.5
+    if fit == "flat":
+        rsg = indices[np.absolute(color[indices] - mu) < width * w]
+    elif fit == "tilted":
         # the location of the RS at the magnitude of each galaxy:
-        cmr = mu + sigma*mag[indices]
-        rsg = indices[np.absolute(color[indices] - cmr) < width*w]
+        cmr = mu + sigma * mag[indices]
+        rsg = indices[np.absolute(color[indices] - cmr) < width * w]
     return rsg

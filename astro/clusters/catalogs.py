@@ -2,19 +2,15 @@
 Old version of the ``catalogs`` module, kept here until the new version
 is fully developed
 """
-from __future__ import absolute_import, division, print_function
 
 from astLib.astCoords import calcAngSepDeg, dms2decimal, hms2decimal
 from astro import cosmology
-from astropy import units as u
-from astropy.coordinates import SkyCoord
 from astropy.io import ascii
 from astropy.io.fits import getdata
 from astropy.table import Table
 from itertools import count
 import numpy as np
 import os
-import urllib
 import six
 import sys
 

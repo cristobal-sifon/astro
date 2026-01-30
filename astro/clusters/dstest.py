@@ -1,18 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import absolute_import, division, print_function
 
-import matplotlib
-import os
-import pylab
-#import readfile
-import numpy
-import sys
+from matplotlib import pyplot as plt
+import numpy as np
 from astLib import astCoords
-from itertools import izip
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Circle
-from matplotlib.ticker import FuncFormatter
 
 from matplotlib import rcParams
 rcParams['axes.labelsize'] = 16
@@ -23,7 +16,7 @@ import time
 c = 299792.458
 
 def Delta(data, z0=0, cluster='', Nnear=10, Nsim=1000,
-          stat=numpy.median, plot_filename=False,
+          stat=np.median, plot_filename=False,
           output=False, verbose=True, full_output=False):
     """
     Perform the DS test (Dressler & Schechtman 1998) and estimate Delta and its
@@ -68,7 +61,7 @@ def Delta(data, z0=0, cluster='', Nnear=10, Nsim=1000,
     """
     if type(data) == str:
         #data = readfile.table(data, cols=(0,1,2,3))
-        data = numpy.loadtxt(data, usecols=(0,1,2,3))
+        data = np.loadtxt(data, usecols=(0,1,2,3))
     elif len(data) != 4:
         msg = 'Wrong data type for variable data. Must be either\n'
         msg += '   (1) the name of the catalog file where the first 4'
@@ -76,7 +69,7 @@ def Delta(data, z0=0, cluster='', Nnear=10, Nsim=1000,
         msg += '   (2) a tuple/list/array with ID, RA, Dec, z'
         print(msg)
         return
-    array = numpy.array
+    array = np.array
 
     obj = array(data[0])
     ra = array(data[1])
@@ -107,8 +100,8 @@ def Cbi(x, c=6.):
     """
     Biweight Location estimator
     """
-    mad = numpy.median(numpy.absolute(x - numpy.median(x)))
-    m = numpy.median(x)
+    mad = np.median(np.absolute(x - np.median(x)))
+    m = np.median(x)
     u = (x - m) / (c * mad)
     good = (abs(u) < 1)
     num = sum((x[good] - m) * (1 - u[good]**2) ** 2)
@@ -117,23 +110,23 @@ def Cbi(x, c=6.):
 
 def getDelta(v, ra, dec, stat, Nnear=10):
     vo = stat(v)
-    stdv = numpy.std(v)
-    results = [Near(v, ra, dec, x, y, stat, Nnear) for x, y in izip(ra, dec)]
-    vnear, snear = numpy.transpose(results)
-    #delta = numpy.sqrt(Nnear)/stdv * numpy.hypot(vnear-vo, snear-stdv)
-    delta = operator.mul(operator.div(numpy.sqrt(Nnear), stdv),
-                         numpy.hypot(vnear-vo, snear-stdv))
+    stdv = np.std(v)
+    results = [Near(v, ra, dec, x, y, stat, Nnear) for x, y in zip(ra, dec)]
+    vnear, snear = np.transpose(results)
+    #delta = np.sqrt(Nnear)/stdv * np.hypot(vnear-vo, snear-stdv)
+    delta = operator.mul(operator.div(np.sqrt(Nnear), stdv),
+                         np.hypot(vnear-vo, snear-stdv))
     return delta, sum(delta)
 
 def Near(v, ra, dec, x, y, stat, Nnear):
     d = astCoords.calcAngSepDeg(ra, dec, x, y)
-    dsort = numpy.argsort(d)
+    dsort = np.argsort(d)
     vgroup = v[dsort[1:Nnear+1]]
-    return stat(vgroup), numpy.std(vgroup)
+    return stat(vgroup), np.std(vgroup)
 
 def significance(Delta, v, ra, dec, stat, Nnear=10, Nsim=1000):
-    permutation = numpy.random.permutation
-    Q = numpy.array([getDelta(permutation(v), ra, dec, stat, Nnear)[1] \
+    permutation = np.random.permutation
+    Q = np.array([getDelta(permutation(v), ra, dec, stat, Nnear)[1] \
                      for i in xrange(Nsim)])
     return len(Q[Q > Delta]) / float(Nsim)
 
@@ -153,17 +146,17 @@ def plot(filename, delta, ra, dec, v, Nnear, cluster='', color=True):
     decwidth = 1.2 * (max(dec) - min(dec))
     avg_circle_size = rawidth / 50.
     n = len(v)
-    j = numpy.arange(n, dtype=int)
+    j = np.arange(n, dtype=int)
     positive = j[v >= 0]
     negative = j[v < 0]
-    fig, ax = pylab.subplots(figsize=(5.5,5))
+    fig, ax = plt.subplots(figsize=(5.5,5))
     if color:
         colors = ('r', 'b')
     else:
         colors = ('k', 'k')
-    size = numpy.exp(delta/2)
-    size *= avg_circle_size / numpy.average(size)
-    for indices, color in izip((positive, negative), colors):
+    size = np.exp(delta/2)
+    size *= avg_circle_size / np.average(size)
+    for indices, color in zip((positive, negative), colors):
         patches = [Circle((ra[i], dec[i]), size[i], fill=None) \
                    for i in indices]
         p = PatchCollection(patches, alpha=0.6, facecolors='w', lw=1.5,
@@ -172,7 +165,7 @@ def plot(filename, delta, ra, dec, v, Nnear, cluster='', color=True):
     ax.plot(ra[0], dec[0], ',', color='w')
     ax.set_xlabel('RA (deg)')
     ax.set_ylabel('DEC (deg)')
-    pylab.title(cluster + ' (%d neighbours)' %Nnear)
+    plt.title(cluster + ' (%d neighbours)' %Nnear)
     halfra = (rawidth) / 2
     halfdec = (decwidth) / 2
     center = ((max(ra) + min(ra)) / 2, (max(dec) + min(dec)) / 2)
@@ -182,6 +175,6 @@ def plot(filename, delta, ra, dec, v, Nnear, cluster='', color=True):
     ax.set_xlim(corners[0], corners[2])
     ax.set_ylim(corners[1], corners[3])
     fig.tight_layout()
-    pylab.savefig(filename, format=filename[-3:])
-    pylab.close()
+    plt.savefig(filename, format=filename[-3:])
+    plt.close()
     return

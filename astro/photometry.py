@@ -1,17 +1,11 @@
-from __future__ import absolute_import, division, print_function
-
 import ezgal
-import numpy
+import numpy as np
 import os
 import re
 import string
 import urllib
 from astLib import astWCS
-try:
-    from astropy.io import fits
-except ImportError:
-    import pyfits as fits
-from scipy.interpolate import interp1d
+from astropy.io import fits
 
 # local
 from . import coordinates
@@ -63,7 +57,7 @@ def extinction(ra, dec, use_ned=True, bands='UBVRIugrizJHKL',
         response = urllib.urlopen(cmd)
         text = response.read()
         # find extinction in each band
-        ext = numpy.zeros(len(bands))
+        ext = np.zeros(len(bands))
         for line in text.split('\n'):
             l = re.split('\s+', line)
             if l[0] in ('Landolt', 'SDSS', 'UKIRT'):
@@ -101,7 +95,7 @@ def mstar(z, band='megacam_r', zf=5.,
     """
     sed = ezgal.model(model)
     #t = [17.65, 18.10, 18.48, 18.81, 19.12, 19.40, 19.67]
-    #mstar_z = interp1d(numpy.arange(0.19, 0.38, 0.03), t, kind='cubic')
+    #mstar_z = interp1d(np.arange(0.19, 0.38, 0.03), t, kind='cubic')
     #if 0.19 <= z <= 0.37 and band == 'megacam_r':
         #return mstar_z(z)
     ## use them to "evolve" mstar using EzGal
@@ -113,7 +107,7 @@ def mstar(z, band='megacam_r', zf=5.,
     #sed.set_normalization('megacam_r', znorm, mstar, apparent=apparent)
     #mstar = sed.get_apparent_mags(zf, band, z)
     #return mstar
-    t = numpy.linspace(0.05, 0.35, 100)
+    t = np.linspace(0.05, 0.35, 100)
     # these are valid for 0.05 < z < 0.7 (Rykoff et al. 2014)
     if z <= 0.5:
         mstar_z = lambda lnz: 22.44 + 3.36*lnz + 0.273*lnz**2 - \
@@ -127,7 +121,7 @@ def mstar(z, band='megacam_r', zf=5.,
         znorm = 0.05
     else:
         znorm = 0.7
-    mstar = mstar_z(numpy.log(znorm))
+    mstar = mstar_z(np.log(znorm))
     #if band == 'sloan_i':
         #return mstar
     sed.set_normalization('sloan_i', znorm, mstar, apparent=apparent)

@@ -1,8 +1,6 @@
-from __future__ import absolute_import, division, print_function, unicode_literals
 from astropy.table import Table
 from dataclasses import dataclass
 import numpy as np
-from matplotlib import pyplot as plt
 from matplotlib.patches import Polygon
 
 

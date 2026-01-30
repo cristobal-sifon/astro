@@ -1,8 +1,4 @@
-from __future__ import absolute_import, division, print_function
-
-import imp
 import os
-from glob import glob
 from numpy import array, inf, loadtxt
 
 import sys

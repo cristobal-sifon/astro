@@ -1,7 +1,4 @@
-from __future__ import absolute_import, division, print_function
-
-import pylab
-import scipy
+import numpy as np
 from astLib import astCoords
 
 from .. import cosmology
@@ -23,7 +20,7 @@ def m200(z, x, y=[], zo=0, xycenter=None, xyunit='deg', zunit='redshift',
 
     """
     if zo == 0:
-        zo = scipy.median(z)
+        zo = np.median(z)
     if zunit == 'velocity':
         v = z
         zo /= c
@@ -37,7 +34,7 @@ def m200(z, x, y=[], zo=0, xycenter=None, xyunit='deg', zunit='redshift',
             r = cosmology.dProj(zo, x, input_unit=xyunit, unit='Mpc')
     # otherwise use the given center to calculate distances
     elif xyunit in ('kpc', 'Mpc'):
-        r = scipy.hypot(x, y)
+        r = np.hypot(x, y)
         if xyunit == 'kpc':
             r /= 1e3
     else:

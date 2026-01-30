@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
-import scipy
-import scipy.integrate
+import numpy as np
+from scipy import integrate
 
 #from .mass_conversion_felipe import convert_mass
 
@@ -82,7 +79,7 @@ def p(x):
 
 def Ysph(R, R500, M500, z):
   f = lambda r: P(r / R500, M500, z) * r ** 2
-  i = 4 * scipy.pi * scipy.integrate.quad(f, 0, R)[0]
+  i = 4 * np.pi * integrate.quad(f, 0, R)[0]
   return i * constants.Msun * constants.sigmaT / (constants.me * constants.c ** 2)
 
 
@@ -91,8 +88,8 @@ def Ycyl(R, R500, M500, z):
   Y_{SZ}·D_A**2, Eq. 15
   """
   Rb = 5 * R500
-  f = lambda x, r: 4 * scipy.pi * r * P(x / R500, M500, z) * x / scipy.sqrt(x ** 2 - r ** 2)
-  i = scipy.integrate.dblquad(f, 0, R, lambda r: r, lambda r: Rb)
+  f = lambda x, r: 4 * np.pi * r * P(x / R500, M500, z) * x / np.sqrt(x ** 2 - r ** 2)
+  i = integrate.dblquad(f, 0, R, lambda r: r, lambda r: Rb)
   return i[0] * constants.Msun * constants.sigmaT / (constants.me * constants.c ** 2)
 
 
@@ -101,15 +98,15 @@ def I(x):
   Eq. 24
   """
   f = lambda u: p(u) * u ** 2
-  return 3 * scipy.integrate.quad(f, 0, x)[0]
+  return 3 * integrate.quad(f, 0, x)[0]
 
 
 def J(x):
   """
   Eq. 27
   """
-  f = lambda u: p(u) * scipy.sqrt(u ** 2 - x ** 2) * u
-  return I(5) - 3 * scipy.integrate.quad(f, x, 5)[0]
+  f = lambda u: p(u) * np.sqrt(u ** 2 - x ** 2) * u
+  return I(5) - 3 * integrate.quad(f, x, 5)[0]
 
 
 def conversion_r500(m500, z, slope = 0.6):

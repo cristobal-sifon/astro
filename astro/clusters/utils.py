@@ -1,6 +1,3 @@
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-
 
 def name_from_coords(coords=None, ra=None, dec=None):
     """Create name from coordinates following IAU convention

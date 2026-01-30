@@ -3,20 +3,15 @@
 Satellite lensing EMCEE wrapper
 
 """
-from __future__ import absolute_import, division, print_function
-
 import emcee
-import numpy
+import numpy as np
 import os
-import sys
-from astropy.io.fits import BinTableHDU, Column, Header, PrimaryHDU
-from itertools import count, izip
-from numpy import all as npall, array, append, concatenate, dot, inf, isnan
-from numpy import isfinite, log, log10, outer, pi, sqrt, transpose, zeros
+from astropy.io.fits import BinTableHDU, Column
+from numpy import all as npall, array, dot, inf
+from numpy import isfinite, log, log10, outer, pi, transpose, zeros
 from os import remove
 from os.path import isfile
 from time import ctime
-import pickle
 
 from . import sampling_utils
 
@@ -63,8 +58,8 @@ def run_emcee(hm_options, sampling_options, args):
 
     # needed for offset central profile
     R, Rrange = sampling_utils.setup_integrand(R, k)
-    angles = numpy.linspace(0, 2*pi, 540)
-    val1 = numpy.append(val1, [Rrange, angles])
+    angles = np.linspace(0, 2*pi, 540)
+    val1 = np.append(val1, [Rrange, angles])
 
     # identify fixed and free parameters
     jfixed = (prior_types == 'fixed') | (prior_types == 'read') | \
@@ -96,11 +91,11 @@ def run_emcee(hm_options, sampling_options, args):
             print('exclude_bins', ','.join([str(c) for c in exclude_bins]),
                   file=hdr)
         print('model %s' %function, file=hdr)
-        for p, pt, v1, v2, v3, v4 in izip(params, prior_types,
+        for p, pt, v1, v2, v3, v4 in zip(params, prior_types,
                                         val1, val2, val3, val4):
             try:
                 line = '%s  %s  ' %(p, pt)
-                line += ','.join(numpy.array(v1, dtype=str))
+                line += ','.join(np.array(v1, dtype=str))
             except TypeError:
                 line = '%s  %s  %s  %s  %s  %s' \
                     %(p, pt, str(v1), str(v2), str(v3), str(v4))
@@ -122,7 +117,7 @@ def run_emcee(hm_options, sampling_options, args):
             ax.plot(Ri, fsat, 'b--', lw=2)
             ax.plot(Ri, fhost, 'g-.', lw=2)
             ax.set_xscale('log')
-            for x, fi, gti, gei in izip(Ri, f, gt, gt_err):
+            for x, fi, gti, gei in zip(Ri, f, gt, gt_err):
                 ax.annotate('{0:.2f}'.format((fi-gti)/gei),
                             xy=(x,gti+20), ha='center', va='bottom',
                             color='r')
@@ -150,7 +145,7 @@ def run_emcee(hm_options, sampling_options, args):
         if Ndatafiles == 1:
             plot_demo(axes, R, esd, esd_err, model[0], model[1], model[2])
         else:
-            for i in izip(axes, R, esd, esd_err, model[0], model[1], model[2]):
+            for i in zip(axes, R, esd, esd_err, model[0], model[1], model[2]):
                 plot_demo(*i)
         if npall(esd - esd_err > 0):
             for ax in axes:
@@ -168,7 +163,7 @@ def run_emcee(hm_options, sampling_options, args):
         exit()
 
     # set up starting point for all walkers
-    po = starting * numpy.random.uniform(0.99, 1.01, size=(nwalkers,ndim))
+    po = starting * np.random.uniform(0.99, 1.01, size=(nwalkers,ndim))
     lnprior = zeros(ndim)
     mshape = meta_names.shape
     # this assumes that all parameters are floats -- can't imagine a
@@ -204,7 +199,7 @@ def run_emcee(hm_options, sampling_options, args):
                                           val1,val2,val3,val4,params_join,
                                           jfree,lnprior,likenorm,
                                           rng_obsbins,fail_value,
-                                          array,dot,inf,izip,outer,pi))
+                                          array,dot,inf,zip,outer,pi))
                                           #isfinite,log,log10
                                           #outer,sqrt,zeros))
     # burn-in
@@ -225,7 +220,7 @@ def run_emcee(hm_options, sampling_options, args):
                                 params, jfree, metadata, meta_names, i,
                                 nwritten, Nobsbins,
                                 array, BinTableHDU, Column, ctime, enumerate,
-                                isfile, izip, transpose, xrange)
+                                isfile, zip, transpose, xrange)
             metadata, nwriten = out
 
     hdr = open(hdrfile, 'a')
@@ -263,15 +258,15 @@ def run_emcee(hm_options, sampling_options, args):
                   params, jfree, metadata, meta_names, i+1,
                   nwritten, Nobsbins,
                   array, BinTableHDU, Column, ctime, enumerate,
-                  isfile, izip, transpose, xrange)
+                  isfile, zip, transpose, xrange)
     os.remove(output.replace('.fits', '.temp.fits'))
     print('Everything saved to {0}!'.format(output))
     return
 
 def lnprob(theta, R, esd, icov, function, params, prior_types,
            val1, val2, val3, val4, params_join, jfree, lnprior, likenorm,
-           rng_obsbins, fail_value, array, dot, inf, izip, outer, pi):
-           #array, dot, inf, izip, isfinite, log, log10, sqrt):
+           rng_obsbins, fail_value, array, dot, inf, zip, outer, pi):
+           #array, dot, inf, zip, isfinite, log, log10, sqrt):
     """
     Probability of a model given the data, i.e., log-likelihood of the data
     given a model, times the prior on the model parameters.
@@ -323,23 +318,23 @@ def lnprob(theta, R, esd, icov, function, params, prior_types,
     lnprior[j] = array([-(v-v1)**2 / (2*v2**2) - _log(2*pi*v2**2)/2
                         if v3 <= v <= v4 else -inf
                         for v, v1, v2, v3, v4
-                        in izip(theta[j], v1free[j], v2free[j],
+                        in zip(theta[j], v1free[j], v2free[j],
                                 v3free[j], v4free[j])])
     j = (prior_types == 'lognormal')
     lnprior[j] = array([-(log10(v)-v1)**2 / (2*v2**2) - _log(2*pi*v2**2)/2
                         if v3 <= v <= v4 else -inf
                         for v, v1, v2, v3, v4
-                        in izip(theta[j], v1free[j], v2free[j],
+                        in zip(theta[j], v1free[j], v2free[j],
                                 v3free[j], v4free[j])])
     j = (prior_types == 'uniform')
     lnprior[j] = array([0-_log(v2-v1) if v1 <= v <= v2 else -inf
                         for v, v1, v2
-                        in izip(theta[j], v1free[j], v2free[j])])
+                        in zip(theta[j], v1free[j], v2free[j])])
     # note that exp is not normalized
     j = (prior_types == 'exp')
     lnprior[j] = array([v**v1 if v2 <= v <= v3 else -inf
                         for v, v1, v2, v3
-                        in izip(theta[j], v1free[j], v2free[j], v3free[j])])
+                        in zip(theta[j], v1free[j], v2free[j], v3free[j])])
     lnprior_total = lnprior.sum()
     if not isfinite(lnprior_total):
         return -inf, fail_value
@@ -380,14 +375,14 @@ def lnprob(theta, R, esd, icov, function, params, prior_types,
 def write_to_fits(output, chi2, sampler, nwalkers, thin, params, jfree,
                   metadata, meta_names, iternum, nwritten,
                   Nobsbins, array, BinTableHDU, Column, ctime, enumerate,
-                  isfile, izip, transpose, xrange):
+                  isfile, zip, transpose, xrange):
     nexclude = len(chi2)
     lnprior, lnPderived, chi2, lnlike = chi2
     if isfile(output):
         remove(output)
     chain = transpose(sampler.chain, axes=(2,1,0))
     columns = [Column(name=param, format='E', array=data[:iternum].flatten())
-               for param, data in izip(params[jfree], chain)]
+               for param, data in zip(params[jfree], chain)]
     columns.append(Column(name='lnprob', format='E',
                           array=sampler.lnprobability.T[:iternum].flatten()))
     if len(meta_names) > 0:
@@ -395,7 +390,7 @@ def write_to_fits(output, chi2, sampler, nwalkers, thin, params, jfree,
         # all others are already in metadata.
         # NOTE that this is only implemented for a model with the
         # same format as fiducial()
-        for j, blob in izip(xrange(nwritten, iternum),
+        for j, blob in zip(xrange(nwritten, iternum),
                             sampler.blobs[nwritten:]):
             data = [transpose([b[i] for b in blob])
                     for i in xrange(len(blob[0])-nexclude)]
@@ -424,8 +419,8 @@ def write_to_fits(output, chi2, sampler, nwalkers, thin, params, jfree,
         columns.append(Column(name='chi2', format='E', array=chi2))
         columns.append(Column(name='lnlike', format='E', array=lnlike))
         # this handles exclude_bins properly
-        for name, val in izip(meta_names, metadata):
-            for name_i, val_i in izip(name, val):
+        for name, val in zip(meta_names, metadata):
+            for name_i, val_i in zip(name, val):
                 try:
                     fmt = '{0}E'.format(val_i.shape[1])
                 except IndexError:

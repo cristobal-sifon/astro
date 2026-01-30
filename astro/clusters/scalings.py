@@ -10,11 +10,9 @@ When the observable is not given at the radius where the scaling relation was
 calculated...
 
 """
-from __future__ import (absolute_import, division, print_function,
-                        unicode_literals)
-import numpy
+import numpy as np
 import uncertainties
-from uncertainties import ufloat, umath, unumpy
+from uncertainties import ufloat, umath, unumpy as unp
 try:
     from uncertainties import Variable
 except ImportError:
@@ -137,7 +135,7 @@ def cM(M, z=0, ref='200c', profile='NFW', scaling='duffy08', redshift=0,
     elif type(c) == Variable:
         return c.nominal_value
     else:
-        return unumpy.nominal_values(c)
+        return unp.nominal_values(c)
 
 
 def csigma(sigma, z=0, dsigma=0, scaling='duffy08'):
@@ -285,37 +283,37 @@ def sigma(s, z, ds=None, dz=None,
         C = ufloat(0.33, 0.0019)
         Msyst = Mdyn(s, z, A, B, C)
         if ds is not None:
-            if type(s) == numpy.ndarray:
-                s = unumpy.uarray(s, ds)
+            if type(s) == np.ndarray:
+                s = unp.uarray(s, ds)
             else:
                 s = ufloat(s, ds)
         if dz is not None:
-            if type(z) == numpy.ndarray:
-                z = unumpy.uarray(z, dz)
+            if type(z) == np.ndarray:
+                z = unp.uarray(z, dz)
             else:
                 z = ufloat(z, dz)
         Mstat = Mdyn(s, z, A.nominal_value,
                      B.nominal_value, C.nominal_value)
         if ds:
             if separate_errors:
-                if type(s) == numpy.ndarray:
-                    err = (numpy.array([M.std_dev for M in Mstat]),
-                           numpy.array([M.std_dev for M in Msyst]))
+                if type(s) == np.ndarray:
+                    err = (np.array([M.std_dev for M in Mstat]),
+                           np.array([M.std_dev for M in Msyst]))
                 else:
                     err = (Mstat.std_dev, Msyst.std_dev)
             else:
-                if type(s) == numpy.ndarray:
-                    err = numpy.array([numpy.hypot(Mst.std_dev, Msy.std_dev) \
+                if type(s) == np.ndarray:
+                    err = np.array([np.hypot(Mst.std_dev, Msy.std_dev) \
                                        for Mst, Msy in zip(Mstat, Msyst)])
                 else:
-                    err = numpy.hypot(Mstat.std_dev, Msyst.std_dev)
-            if type(s) == numpy.ndarray:
-                M = numpy.array([M.nominal_value for M in Msyst])
+                    err = np.hypot(Mstat.std_dev, Msyst.std_dev)
+            if type(s) == np.ndarray:
+                M = np.array([M.nominal_value for M in Msyst])
             else:
                 M = Msys.nominal_value
             return M, err
-        if type(s) == numpy.ndarray:
-            return numpy.array([M.nominal_value for M in Msyst])
+        if type(s) == np.ndarray:
+            return np.array([M.nominal_value for M in Msyst])
         return Msyst.nominal_value
     # slope
     A = {'200c': {'evrard08': (0.3361, 0.0026),
@@ -364,16 +362,16 @@ def sigma(s, z, ds=None, dz=None,
         A = 3 * h * mo / (2*Ez**3) * (s/so)**(1/a) * (1+z)**2
         # dM/ds
         B = mo / (h*Ez) * (s/so) ** (1/a) / (a*s)
-        stat = numpy.hypot(A*dzi, B*dsi)
+        stat = np.hypot(A*dzi, B*dsi)
         ## systematic:
         # dM/dso
         C = -mo / (h*Ez) * (s/so)**(1/a) / (a*so)
         # dM/da
-        D = -mo / (h*Ez) * (s/so)**(1/a) * numpy.log(s/so) / a**2
+        D = -mo / (h*Ez) * (s/so)**(1/a) * np.log(s/so) / a**2
         # dM/db
         E = m / (b*a)
-        syst = numpy.hypot(C*dso, numpy.hypot(D*da, E*db))
-        return numpy.array([stat, syst])
+        syst = np.hypot(C*dso, np.hypot(D*da, E*db))
+        return np.array([stat, syst])
 
     if ds is not None:
         if dz is None:
@@ -388,8 +386,8 @@ def sigma(s, z, ds=None, dz=None,
             if separate_errors:
                 return m, (st1, st2, syst)
             else:
-                return m, (numpy.hypot(st1, syst), scipy.hypot(st2, syst))
-        return m, numpy.hypot(stat, syst)
+                return m, (np.hypot(st1, syst), scipy.hypot(st2, syst))
+        return m, np.hypot(stat, syst)
     else:
       return m
 

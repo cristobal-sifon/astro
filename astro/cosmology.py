@@ -14,9 +14,7 @@ Larson et al. 2011, ApJS, 192, 16):
     Omega_k = 0.00
 
 """
-from __future__ import absolute_import, division, print_function
-
-import scipy
+import numpy as np
 from scipy import integrate
 #from astropy import constants
 #from astropy import units as u
@@ -58,7 +56,7 @@ def tH(z, unit='Gyr'):
     The units can be 's', 'yr' or 'Gyr' (default unit='Gyr').
     """
     f = lambda t: 1. / ((1. + t) * E(t))
-    i = integrate.quad(f, z, scipy.inf)[0]
+    i = integrate.quad(f, z, np.inf)[0]
     if unit == 'Gyr':
         return 1 / H(0, unit='s') * i / units.Gyr
     if unit == 'yr':
@@ -123,7 +121,7 @@ def dM(z, dist, input_unit='deg', unit='Mpc'):
     input_unit can be 'arcsec', 'arcmin', 'deg', or 'rad'
     """
     if type(dist) in (list, tuple):
-        dist = scipy.array(dist)
+        dist = np.array(dist)
     if input_unit == 'arcsec':
         dist /= 3600.
         input_unit = 'deg'
@@ -131,15 +129,15 @@ def dM(z, dist, input_unit='deg', unit='Mpc'):
         dist /= 60
         input_unit = 'deg'
     if input_unit == 'deg':
-        dist *= scipy.pi / 180
+        dist *= np.pi / 180
     if Omega_k == 0:
         return dist * dC(z, unit)
     elif Omega_k > 0:
-        return dist * dH / scipy.sqrt(Omega_k) * \
-               scipy.sinh(scipy.sqrt(Omega_k) * dC(z, unit) / dH(0, unit))
+        return dist * dH / np.sqrt(Omega_k) * \
+               np.sinh(np.sqrt(Omega_k) * dC(z, unit) / dH(0, unit))
     else:
-        return dist * dH / scipy.sqrt(-Omega_k) * \
-               scipy.sin(scipy.sqrt(Omega_k) * dC(z, unit) / dH(0, unit))
+        return dist * dH / np.sqrt(-Omega_k) * \
+               np.sin(np.sqrt(Omega_k) * dC(z, unit) / dH(0, unit))
 
 def dA(z1, z2=0, unit='Mpc'):
     """
@@ -152,10 +150,10 @@ def dA(z1, z2=0, unit='Mpc'):
         return dC(z1, unit) / (1 + z1)
     elif Omega_k >= 0:
         pseudo_dist = dC(z2, unit) * \
-                         scipy.sqrt(1 + Omega_k * \
+                         np.sqrt(1 + Omega_k * \
                                     (dC(z1, unit) / dH(0, unit)) ** 2)
         pseudo_dist -= dC(z1, unit) * \
-                       scipy.sqrt(1 + Omega_k * \
+                       np.sqrt(1 + Omega_k * \
                                   (dC(z2, unit) / dH(0, unit)) ** 2)
         return pseudo_dist / (1 + z2)
     else:
@@ -182,36 +180,36 @@ def dProj(z, dist, input_unit='deg', unit='Mpc'):
 
     # from angular to physical
     if input_unit == 'deg':
-        dist = Da * scipy.pi * dist / 180
+        dist = Da * np.pi * dist / 180
     elif input_unit == 'arcmin':
-        dist = Da * scipy.pi * dist / (180 * 60)
+        dist = Da * np.pi * dist / (180 * 60)
     elif input_unit == 'arcsec':
-        dist = Da * scipy.pi * dist / (180 * 3600)
+        dist = Da * np.pi * dist / (180 * 3600)
     # from physical to angular
     if unit == 'deg':
-        dist = dist * 180 / (scipy.pi * Da)
+        dist = dist * 180 / (np.pi * Da)
     elif unit == 'arcmin':
-        dist = dist * 180 * 60 / (scipy.pi * Da)
+        dist = dist * 180 * 60 / (np.pi * Da)
     elif unit == 'arcsec':
-        dist = dist * 180 * 3600 / (scipy.pi * Da)
+        dist = dist * 180 * 3600 / (np.pi * Da)
     return dist
 
 def angular_separation(ra1, dec1, ra2, dec2, unit='deg'):
     # copied from astLib.astCoords.calcAngSepDeg
     # gives the same result to <1e-2 arcsec
     if unit == 'deg':
-        ra1 *= scipy.pi / 180
-        dec1 *= scipy.pi / 180
-        ra2 *= scipy.pi / 180
-        dec2 *= scipy.pi / 180
+        ra1 *= np.pi / 180
+        dec1 *= np.pi / 180
+        ra2 *= np.pi / 180
+        dec2 *= np.pi / 180
     dra = ra1 - ra2
-    cos = scipy.sin(dec1) * scipy.sin(dec2) + \
-          scipy.cos(dec1) * scipy.cos(dec2) * scipy.cos(dra)
-    x = scipy.cos(dec2) * scipy.sin(dra) / cos
-    y = scipy.cos(dec2) * scipy.sin(dec1) - \
-        scipy.sin(dec2) * scipy.cos(dec1) * scipy.cos(dra)
+    cos = np.sin(dec1) * np.sin(dec2) + \
+          np.cos(dec1) * np.cos(dec2) * np.cos(dra)
+    x = np.cos(dec2) * np.sin(dra) / cos
+    y = np.cos(dec2) * np.sin(dec1) - \
+        np.sin(dec2) * np.cos(dec1) * np.cos(dra)
     y /= cos
-    return scipy.degrees(scipy.hypot(x, y))
+    return np.degrees(np.hypot(x, y))
 
 def density(z=0, ref='critical', unit='astro'):
     """
@@ -220,10 +218,10 @@ def density(z=0, ref='critical', unit='astro'):
     """
     assert ref[0] in 'acm'
     if ref[0] == 'c':
-        d = 3 * H(z, unit='s')**2 / (8*scipy.pi*constants.G)
+        d = 3 * H(z, unit='s')**2 / (8*np.pi*constants.G)
     elif ref[0] in ('a', 'm'):
         d = 3 * H(0., unit='s')**2 * Omega_M * (1+z)**3 / \
-            (8 * scipy.pi * constants.G)
+            (8 * np.pi * constants.G)
     if unit == 'astro':
         return d / constants.Msun * units.Mpc ** 3
     return d
