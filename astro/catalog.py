@@ -1,5 +1,7 @@
 """Catalog manipulation and lookup utilities"""
 
+from astropy import units as u
+from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from matplotlib import pyplot as plt
 from matplotlib.collections import PatchCollection
@@ -175,6 +177,86 @@ class SourceCatalog(Table):
             for name, x, y in self.iterrows(names, f"X_{frame}", f"Y_{frame}"):
                 ax.annotate(name, xy=(x, y), **names_kwargs)
         return ax
+
+    def query(
+        self,
+        coords=None,
+        ra=None,
+        dec=None,
+        radius=1 * u.arcsec,
+    ):
+        """
+        Query the catalog for specific sources
+
+        Parameters
+        ----------
+        name : array-like, dtype string
+            name(s) to query. In this case, ``radius`` is ignored. Name(s) will be
+            matched against the column given in the first element of ``base_cols``
+        coords : ``astropy.coordinates.SkyCoord``
+            coordinates to query. Will be ignored if ``name`` is provided
+        ra, dec : array-like
+            Right ascension and declination. Will be ignored if ``coords``
+            or ``name`` are provided
+        radius : ``astropy.units.Quantity``
+            maximum matching radius in angular or physical units
+
+        Returns
+        -------
+        matches : ``astropy.table.Table``
+            matching objects
+        """
+        assert isinstance(radius, u.Quantity)
+        if coords is None:
+            if ra is None or dec is None:
+                raise ValueError("Need to specify either ra, dec or coords")
+            coords = SkyCoord(ra=ra, dec=dec, unit="deg", frame="icrs")
+        assert isinstance(coords, SkyCoord)
+        if coords.isscalar:
+            coords = coords.reshape((1,))
+        coords = coords.icrs
+        if "RA" in self.colnames and "DEC" in self.colnames:
+            cat_ra = np.asarray(self["RA"])
+            cat_dec = np.asarray(self["DEC"])
+        elif "X_WORLD" in self.colnames and "Y_WORLD" in self.colnames:
+            cat_ra = np.asarray(self["X_WORLD"])
+            cat_dec = np.asarray(self["Y_WORLD"])
+        else:
+            raise ValueError(
+                "Catalog must contain either (RA, DEC) or (X_WORLD, Y_WORLD) columns"
+            )
+        if u.get_physical_type(radius.unit) == "length":
+            raise NotImplementedError("matching in physical distance not implemented")
+        radius_deg = (1.2 * radius).to(u.deg).value
+        if radius_deg > 0:
+            if coords.size == 1:
+                ra0 = coords.ra.deg[0]
+                dec0 = coords.dec.deg[0]
+                dra = np.abs((cat_ra - ra0 + 180.0) % 360.0 - 180.0)
+                pre_mask = (dra <= radius_deg) & (np.abs(cat_dec - dec0) <= radius_deg)
+            else:
+                pre_mask = np.zeros(cat_ra.size, dtype=bool)
+                coords_ra = coords.ra.deg
+                coords_dec = coords.dec.deg
+                chunk_size = 256
+                for i in range(0, coords_ra.size, chunk_size):
+                    ra_chunk = coords_ra[i : i + chunk_size][:, None]
+                    dec_chunk = coords_dec[i : i + chunk_size][:, None]
+                    dra = np.abs((cat_ra[None, :] - ra_chunk + 180.0) % 360.0 - 180.0)
+                    dec_ok = np.abs(cat_dec[None, :] - dec_chunk) <= radius_deg
+                    pre_mask |= np.any((dra <= radius_deg) & dec_ok, axis=0)
+            if not np.any(pre_mask):
+                return self[pre_mask]
+            cat_ra = cat_ra[pre_mask]
+            cat_dec = cat_dec[pre_mask]
+            cat_view = self[pre_mask]
+        else:
+            cat_view = self
+        cat_coords = SkyCoord(ra=cat_ra, dec=cat_dec, unit="deg", frame="icrs")
+        distances = cat_coords.separation(coords[:, None])
+        closest = np.min(distances, axis=0)
+        matches = closest <= radius
+        return cat_view[matches]
 
     def save_regions(
         self,
